@@ -130,14 +130,15 @@ export default class Dress extends BaseCommand {
     const diff = diffState(current, desired);
 
     // Resolve bundled skill files (read content now for later copy)
+    // The installer copies skill files to ~/.clawset/dresses/<id>/<skillName>.md
     const dressPackageDir = join(this.clawsetPaths.dresses, dressId);
     const bundledSkills = new Map<string, string>();
-    for (const [skillName, skillPath] of Object.entries(resolved.files.skills)) {
-      const fullPath = join(dressPackageDir, skillPath);
+    for (const skillName of Object.keys(resolved.files.skills)) {
+      const fullPath = join(dressPackageDir, `${skillName}.md`);
       if (existsSync(fullPath)) {
         bundledSkills.set(skillName, await readFile(fullPath, 'utf-8'));
       } else {
-        this.error(`Bundled skill file not found: ${skillPath} (for skill "${skillName}")`);
+        this.error(`Bundled skill file not found: ${fullPath} (for skill "${skillName}")`);
       }
     }
 
