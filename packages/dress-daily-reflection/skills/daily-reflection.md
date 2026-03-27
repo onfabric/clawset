@@ -22,11 +22,9 @@ Send a single compact message with two parts:
 
 Keep it lightweight, practical, and easy to answer. The goal is a quick capture, not an essay.
 
-## After sending
+## After the user responds
 
-- If today's daily memory file exists, append a marker under a section named exactly `## Daily reflection` noting that the reflection prompt was sent
-- If the file does not exist, create it and add that section with the marker
-- Mention to the user that you'll store their answers there too
+- Save the user's reflection and tomorrow's priorities under the `## {{memory.dailySections}}` section in today's daily memory file
 
 ## Style
 

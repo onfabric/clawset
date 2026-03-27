@@ -131,6 +131,39 @@ export default class Dress extends BaseCommand {
     const current = this.stateManager.currentApplied(state);
     const diff = diffState(current, desired);
 
+    // Build auto-injected template vars from the dress definition
+    const workspaceRoot = `~/.openclaw/workspace/${dressId}`;
+    const autoVars: Record<string, string> = {
+      'dress.id': dressId,
+      'dress.name': resolved.name,
+      'memory.dailySections': resolved.memory.dailySections.join(', '),
+      'memory.reads': resolved.memory.reads.join(', '),
+      'workspace.root': workspaceRoot,
+    };
+    // Add individual workspace file paths
+    for (const wsPath of Object.keys(resolved.workspace)) {
+      autoVars[`workspace.${wsPath}`] = `~/.openclaw/workspace/${wsPath}`;
+    }
+
+    // Helper: resolve {{...}} template vars in a string
+    const resolveTemplate = (text: string, extraVars?: Record<string, string>): string => {
+      const allVars = extraVars ? { ...autoVars, ...extraVars } : autoVars;
+      for (const [key, value] of Object.entries(allVars)) {
+        text = text.replaceAll(`{{${key}}}`, value);
+      }
+      return text;
+    };
+
+    // Resolve heartbeat rules
+    const resolvedHeartbeat = resolved.heartbeat.map((rule, i) => {
+      const result = resolveTemplate(rule);
+      const unresolved = result.match(/\{\{[^}]+\}\}/g);
+      if (unresolved) {
+        this.error(`Unresolved template vars in heartbeat rule ${i + 1}: ${[...new Set(unresolved)].join(', ')}`);
+      }
+      return result;
+    });
+
     // Resolve bundled skill files (read content now for later copy)
     // The installer copies skill files to ~/.clawset/dresses/<id>/<skillName>.md
     const dressPackageDir = join(this.clawsetPaths.dresses, dressId);
@@ -140,19 +173,13 @@ export default class Dress extends BaseCommand {
       if (!existsSync(fullPath)) {
         this.error(`Bundled skill file not found: ${fullPath} (for skill "${skillName}")`);
       }
-      let content = await readFile(fullPath, 'utf-8');
+      const skillVars = typeof skillDef === 'object' ? skillDef.vars : undefined;
+      let content = resolveTemplate(await readFile(fullPath, 'utf-8'), skillVars);
 
-      // Resolve template vars if present
-      const vars = typeof skillDef === 'object' ? skillDef.vars : undefined;
-      if (vars && Object.keys(vars).length > 0) {
-        for (const [key, value] of Object.entries(vars)) {
-          content = content.replaceAll(`{{${key}}}`, value);
-        }
-        // Validate no unresolved placeholders remain
-        const unresolved = content.match(/\{\{[^}]+\}\}/g);
-        if (unresolved) {
-          this.error(`Unresolved template vars in skill "${skillName}": ${unresolved.join(', ')}`);
-        }
+      // Validate no unresolved placeholders remain
+      const unresolved = content.match(/\{\{[^}]+\}\}/g);
+      if (unresolved) {
+        this.error(`Unresolved template vars in skill "${skillName}": ${[...new Set(unresolved)].join(', ')}`);
       }
 
       bundledSkills.set(skillName, content);
@@ -197,8 +224,8 @@ export default class Dress extends BaseCommand {
         this.log(`  ${chalk.green('+')} memory section: ${s}`);
       }
     }
-    if (resolved.heartbeat.length > 0) {
-      this.log(`  ${chalk.green('+')} heartbeat: ${resolved.heartbeat.length} rule(s)`);
+    if (resolvedHeartbeat.length > 0) {
+      this.log(`  ${chalk.green('+')} heartbeat: ${resolvedHeartbeat.length} rule(s)`);
     }
     for (const wp of Object.keys(resolved.workspace)) {
       this.log(`  ${chalk.green('+')} workspace: ~/.openclaw/workspace/${wp}`);
@@ -351,7 +378,7 @@ export default class Dress extends BaseCommand {
           task: async () => {
             const dressDir = join(this.openclawPaths.dresses, dressId);
             await mkdir(dressDir, { recursive: true });
-            const dresscode = generateDresscode(resolved);
+            const dresscode = generateDresscode({ ...resolved, heartbeat: resolvedHeartbeat });
             const dresscodePath = join(dressDir, 'DRESSCODE.md');
             await writeFile(dresscodePath, dresscode);
             appliedFiles.push(dresscodePath);
@@ -359,9 +386,9 @@ export default class Dress extends BaseCommand {
         },
         {
           title: 'Writing heartbeat rules',
-          skip: () => resolved.heartbeat.length === 0,
+          skip: () => resolvedHeartbeat.length === 0,
           task: async () => {
-            await this.appendHeartbeatRules(dressId, resolved.heartbeat);
+            await this.appendHeartbeatRules(dressId, resolvedHeartbeat);
           },
         },
         {
@@ -393,7 +420,7 @@ export default class Dress extends BaseCommand {
                 installedPlugins,
                 memorySections: [...resolved.memory.dailySections],
                 files: appliedFiles,
-                heartbeatEntries: [...resolved.heartbeat],
+                heartbeatEntries: [...resolvedHeartbeat],
                 workspaceFiles: Object.keys(resolved.workspace),
               },
             };
