@@ -66,9 +66,11 @@ export default class Dress extends BaseCommand {
 
     // If no specifier, discover available dresses and prompt
     if (!specifier) {
-      const dresses = await this.discoverDresses();
+      const state = await this.stateManager.load();
+      const activeIds = new Set(Object.keys(state.dresses));
+      const dresses = (await this.discoverDresses()).filter((d) => !activeIds.has(d.id));
       if (dresses.length === 0) {
-        this.error('No dress packages found.\nProvide a path: clawset dress ./path/to/dress');
+        this.error('No available dresses found.\nAll dresses may already be active, or provide a path: clawset dress ./path/to/dress');
       }
       specifier = await select({
         message: 'Choose a dress to wear',
