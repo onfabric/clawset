@@ -111,8 +111,14 @@ export class LocalOpenClawDriver implements OpenClawDriver {
   }
 
   async skillExists(name: string): Promise<boolean> {
-    const { exitCode } = await this.exec(['skills', 'info', name]);
-    return exitCode === 0;
+    const { stdout, exitCode } = await this.exec(['skills', 'info', name, '--json']);
+    if (exitCode !== 0) return false;
+    try {
+      const info = JSON.parse(stdout);
+      return !info.error;
+    } catch {
+      return false;
+    }
   }
 
   async skillInstall(slug: string): Promise<void> {
