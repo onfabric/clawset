@@ -1,0 +1,29 @@
+{
+  "name": "@clawset/dress-sleeping-coach",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Sleep coaching powered by Oura Ring data",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "skills"],
+  "keywords": ["clawset", "clawset-dress", "sleep", "oura", "health"],
+  "clawset": {
+    "type": "dress",
+    "openclaw": ">=2026.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@clawset/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

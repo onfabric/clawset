@@ -73,6 +73,16 @@
         "typescript": "^5.7.0",
       },
     },
+    "packages/dress-sleeping-coach": {
+      "name": "@clawset/dress-sleeping-coach",
+      "version": "1.0.0",
+      "dependencies": {
+        "@clawset/core": "workspace:*",
+      },
+      "devDependencies": {
+        "typescript": "^5.7.0",
+      },
+    },
   },
   "packages": {
     "@clawset/cli": ["@clawset/cli@workspace:packages/cli"],
@@ -84,6 +94,8 @@
     "@clawset/dress-fitness-coach": ["@clawset/dress-fitness-coach@workspace:packages/dress-fitness-coach"],
 
     "@clawset/dress-ontology": ["@clawset/dress-ontology@workspace:packages/dress-ontology"],
+
+    "@clawset/dress-sleeping-coach": ["@clawset/dress-sleeping-coach@workspace:packages/dress-sleeping-coach"],
 
     "@inquirer/ansi": ["@inquirer/ansi@1.0.2", "", {}, "sha512-S8qNSZiYzFd0wAcyG5AXCvUHC5Sr7xpZ9wZ2py9XR88jUz8wooStVx5M6dRzczbBWjic9NP7+rY0Xi7qqK/aMQ=="],
 
