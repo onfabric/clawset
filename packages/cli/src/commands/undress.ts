@@ -2,7 +2,7 @@ import { Args, Flags } from '@oclif/core';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { confirm } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import chalk from 'chalk';
 import { Listr } from 'listr2';
 import { stripMarkers, removeSection, type StateFile } from '@clawset/core';
@@ -19,7 +19,7 @@ export default class Undress extends BaseCommand {
   static args = {
     id: Args.string({
       description: 'Dress ID to remove',
-      required: true,
+      required: false,
     }),
   };
 
@@ -45,16 +45,34 @@ export default class Undress extends BaseCommand {
     await this.loadConfig();
 
     const state = await this.stateManager.load();
-    const entry = this.stateManager.getDressEntry(state, args.id);
+
+    let dressId = args.id;
+
+    // If no ID, prompt from active dresses
+    if (!dressId) {
+      const activeIds = Object.keys(state.dresses);
+      if (activeIds.length === 0) {
+        this.error('No active dresses to remove.\nRun "clawset status" to check.');
+      }
+      dressId = await select({
+        message: 'Choose a dress to remove',
+        choices: activeIds.map((id) => ({
+          name: `${id} ${chalk.dim(`v${state.dresses[id].version}`)}`,
+          value: id,
+        })),
+      });
+    }
+
+    const entry = this.stateManager.getDressEntry(state, dressId);
 
     if (!entry) {
-      this.error(`Dress "${args.id}" is not active.\nRun "clawset status" to see active dresses.`);
+      this.error(`Dress "${dressId}" is not active.\nRun "clawset status" to see active dresses.`);
     }
 
     // Check for dependants
-    const dependants = this.findDependants(state, args.id);
+    const dependants = this.findDependants(state, dressId);
     if (dependants.length > 0 && !flags.force) {
-      this.log(chalk.yellow(`\nWarning: The following dresses depend on "${args.id}":`));
+      this.log(chalk.yellow(`\nWarning: The following dresses depend on "${dressId}":`));
       for (const dep of dependants) {
         this.log(`  - ${dep}`);
       }
@@ -63,7 +81,7 @@ export default class Undress extends BaseCommand {
     }
 
     // Determine what needs to be removed vs retained
-    const othersNeed = this.collectOthersNeeds(state, args.id);
+    const othersNeed = this.collectOthersNeeds(state, dressId);
 
     const cronsToRemove = entry.applied.crons;
     // Only remove plugins that clawset actually installed (not pre-existing ones)
@@ -76,7 +94,7 @@ export default class Undress extends BaseCommand {
     const skillsRetained = entry.applied.skills.filter((s) => !installedSkillSet.has(s) || othersNeed.skills.has(s));
 
     // Show what will happen
-    this.log(chalk.bold(`\nUndressing "${args.id}":\n`));
+    this.log(chalk.bold(`\nUndressing "${dressId}":\n`));
 
     for (const c of cronsToRemove) {
       this.log(`  ${chalk.red('-')} cron: ${c.displayName}`);
@@ -193,14 +211,14 @@ export default class Undress extends BaseCommand {
           title: 'Stripping memory markers',
           skip: () => entry.applied.memorySections.length === 0,
           task: async () => {
-            await this.stripMemoryMarkers(args.id);
+            await this.stripMemoryMarkers(dressId);
           },
         },
         {
           title: 'Stripping heartbeat rules',
           skip: () => entry.applied.heartbeatEntries.length === 0,
           task: async () => {
-            await this.stripHeartbeatRules(args.id);
+            await this.stripHeartbeatRules(dressId);
           },
         },
         {
@@ -214,7 +232,7 @@ export default class Undress extends BaseCommand {
               }
             }
             // Clean up empty dress directory
-            const dressDir = join(this.openclawPaths.dresses, args.id);
+            const dressDir = join(this.openclawPaths.dresses, dressId);
             if (existsSync(dressDir)) {
               try {
                 const items = await readdir(dressDir);
@@ -247,13 +265,13 @@ export default class Undress extends BaseCommand {
         {
           title: 'Updating DRESSES.md',
           task: async () => {
-            await this.rebuildDressesIndex(state, args.id);
+            await this.rebuildDressesIndex(state, dressId);
           },
         },
         {
           title: 'Saving state',
           task: async () => {
-            delete state.dresses[args.id];
+            delete state.dresses[dressId];
             await this.stateManager.save(state);
           },
         },
@@ -269,9 +287,9 @@ export default class Undress extends BaseCommand {
         pluginsRetained.length > 0 ? `retained plugins: ${pluginsRetained.join(', ')}` : '',
       ].filter(Boolean).join('\n');
 
-      await this.gitManager.commit('revert', args.id, 'undress', body);
+      await this.gitManager.commit('revert', dressId, 'undress', body);
 
-      this.log(`\n${chalk.green('✓')} Undressed "${args.id}". Data preserved.`);
+      this.log(`\n${chalk.green('✓')} Undressed "${dressId}". Data preserved.`);
     } catch (err) {
       if (snapshot) await this.gitManager.rollback(snapshot);
       throw err;

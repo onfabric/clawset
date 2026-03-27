@@ -4,7 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { spawn } from 'node:child_process';
-import { input, number, confirm } from '@inquirer/prompts';
+import { input, number, confirm, select } from '@inquirer/prompts';
 import { Listr } from 'listr2';
 import {
   z,
@@ -34,7 +34,7 @@ export default class Dress extends BaseCommand {
   static args = {
     specifier: Args.string({
       description: 'Dress package specifier (local path or package name)',
-      required: true,
+      required: false,
     }),
   };
 
@@ -62,10 +62,24 @@ export default class Dress extends BaseCommand {
     const { args, flags } = await this.parse(Dress);
     const config = await this.loadConfig();
 
+    let specifier = args.specifier;
+
+    // If no specifier, discover available dresses and prompt
+    if (!specifier) {
+      const dresses = await this.discoverDresses();
+      if (dresses.length === 0) {
+        this.error('No dress packages found.\nProvide a path: clawset dress ./path/to/dress');
+      }
+      specifier = await select({
+        message: 'Choose a dress to wear',
+        choices: dresses.map((d) => ({ name: `${d.name} ${chalk.dim(`(${d.id})`)}`, value: d.path, description: d.description })),
+      });
+    }
+
     // Install the dress package
-    this.log(`\nResolving ${chalk.cyan(args.specifier)}...`);
+    this.log(`\nResolving ${chalk.cyan(specifier)}...`);
     const { dress, packageName } = await installDress(
-      args.specifier,
+      specifier,
       this.clawsetPaths.dresses,
     );
 
@@ -641,5 +655,39 @@ export default class Dress extends BaseCommand {
     }
 
     await writeFile(agentsPath, content);
+  }
+
+  private async discoverDresses(): Promise<Array<{ id: string; name: string; description: string; path: string }>> {
+    const results: Array<{ id: string; name: string; description: string; path: string }> = [];
+    // Look for dress-* packages in the packages directory (sibling to cli)
+    const packagesDir = join(this.clawsetPaths.root, 'packages');
+    if (!existsSync(packagesDir)) return results;
+
+    const { readdir: readdirAsync } = await import('node:fs/promises');
+    const entries = await readdirAsync(packagesDir);
+
+    for (const entry of entries) {
+      if (!entry.startsWith('dress-')) continue;
+      const pkgJsonPath = join(packagesDir, entry, 'package.json');
+      if (!existsSync(pkgJsonPath)) continue;
+
+      try {
+        const pkg = JSON.parse(await readFile(pkgJsonPath, 'utf-8'));
+        const dressPath = `./packages/${entry}`;
+
+        // Try to load the dress to get its ID and name
+        const { dress } = await installDress(dressPath, this.clawsetPaths.dresses);
+        results.push({
+          id: dress._input.id,
+          name: dress._input.name,
+          description: dress._input.description ?? pkg.description ?? '',
+          path: dressPath,
+        });
+      } catch {
+        // Skip dresses that can't be loaded
+      }
+    }
+
+    return results;
   }
 }
