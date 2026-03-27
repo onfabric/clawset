@@ -164,7 +164,8 @@ export class LocalOpenClawDriver implements OpenClawDriver {
     if (exitCode !== 0) return false;
     try {
       const info = JSON.parse(stdout);
-      return !!info.plugin && !info.error;
+      // Check the plugin is fully installed (has install record), not just a config entry
+      return !!info.plugin && !!info.install && !info.error;
     } catch {
       return false;
     }
