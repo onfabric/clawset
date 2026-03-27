@@ -1,0 +1,29 @@
+{
+  "name": "@clawset/dress-ontology",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Maintains a personal knowledge graph using the ontology skill from ClawHub",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "keywords": ["clawset", "clawset-dress", "ontology"],
+  "clawset": {
+    "type": "dress",
+    "openclaw": ">=2026.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@clawset/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
