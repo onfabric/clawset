@@ -206,8 +206,18 @@ export default class Dress extends BaseCommand {
       );
     }
 
-    // Collect plugin secrets before locking
-    const pluginSecrets = await this.collectPluginSecrets(diff.pluginsToAdd, flags);
+    // Check which plugins actually need installing (skip pre-existing ones)
+    const pluginsToInstall: PluginDef[] = [];
+    for (const plugin of diff.pluginsToAdd) {
+      if (await this.openclawDriver.pluginIsInstalled(plugin.id)) {
+        this.log(`  ${chalk.dim('~')} plugin: ${plugin.id} ${chalk.dim('(already installed — skipping config)')}`);
+      } else {
+        pluginsToInstall.push(plugin);
+      }
+    }
+
+    // Collect plugin secrets only for plugins we're actually installing
+    const pluginSecrets = await this.collectPluginSecrets(pluginsToInstall, flags);
 
     // Lock and apply
     await this.stateManager.lock();
@@ -222,16 +232,11 @@ export default class Dress extends BaseCommand {
       const tasks = new Listr([
         {
           title: 'Installing plugins',
-          skip: () => diff.pluginsToAdd.length === 0,
+          skip: () => pluginsToInstall.length === 0,
           task: async () => {
-            for (const plugin of diff.pluginsToAdd) {
-              const alreadyInstalled = await this.openclawDriver.pluginIsInstalled(plugin.id);
-              if (alreadyInstalled) {
-                this.warn(`Plugin "${plugin.id}" already installed — skipping install`);
-              } else {
-                await this.openclawDriver.pluginInstall(plugin.spec);
-                installedPlugins.push(plugin.id);
-              }
+            for (const plugin of pluginsToInstall) {
+              await this.openclawDriver.pluginInstall(plugin.spec);
+              installedPlugins.push(plugin.id);
 
               // Set static config values
               for (const [key, value] of Object.entries(plugin.config)) {
@@ -256,7 +261,7 @@ export default class Dress extends BaseCommand {
         },
         {
           title: 'Restarting gateway',
-          skip: () => diff.pluginsToAdd.length === 0,
+          skip: () => pluginsToInstall.length === 0,
           task: async () => {
             await this.openclawDriver.gatewayRestart();
           },
