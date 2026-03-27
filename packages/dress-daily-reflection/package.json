@@ -1,0 +1,14 @@
+{
+  "name": "@clawset/dress-daily-reflection",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "End-of-day reflection habit — capture what mattered and set tomorrow's intentions",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "skills"],
+  "keywords": ["clawset", "clawset-dress", "reflection"],
+  "clawset": { "type": "dress", "openclaw": ">=2026.3" },
+  "scripts": { "build": "tsc", "clean": "rm -rf dist *.tsbuildinfo" },
+  "dependencies": { "@clawset/core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.7.0" }
+}

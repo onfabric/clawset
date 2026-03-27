@@ -1,0 +1,14 @@
+{
+  "name": "@clawset/dress-daily-pill",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "One bookmark a day — the most relevant link for what you're working on right now",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "skills"],
+  "keywords": ["clawset", "clawset-dress", "bookmarks", "reading", "pill"],
+  "clawset": { "type": "dress", "openclaw": ">=2026.3" },
+  "scripts": { "build": "tsc", "clean": "rm -rf dist *.tsbuildinfo" },
+  "dependencies": { "@clawset/core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.7.0" }
+}

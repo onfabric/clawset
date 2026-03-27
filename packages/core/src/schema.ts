@@ -85,8 +85,16 @@ export const requiresSchema = z.object({
 // Files — assets bundled with the dress
 // ---------------------------------------------------------------------------
 
+export const skillFileDefSchema = z.union([
+  z.string(), // plain path to SKILL.md
+  z.object({
+    path: z.string(),
+    vars: z.record(z.string(), z.string()).default({}),
+  }),
+]);
+
 export const dressFilesSchema = z.object({
-  skills: z.record(z.string(), z.string()).default({}), // skill-name → path to SKILL.md
+  skills: z.record(z.string(), skillFileDefSchema).default({}),
   templates: z.array(z.string()).default([]),
 });
 
@@ -164,6 +172,7 @@ export type DressId = z.infer<typeof dressIdSchema>;
 export type AppliedCron = z.infer<typeof appliedCronSchema>;
 export type CronDef = z.infer<typeof cronDefSchema>;
 export type PluginDef = z.infer<typeof pluginDefSchema>;
+export type SkillFileDef = z.infer<typeof skillFileDefSchema>;
 export type MemoryContract = z.infer<typeof memoryContractSchema>;
 export type Requires = z.infer<typeof requiresSchema>;
 export type SecretDef = z.infer<typeof secretDefSchema>;

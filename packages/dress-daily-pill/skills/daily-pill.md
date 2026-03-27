@@ -1,0 +1,69 @@
+---
+name: daily-pill
+description: Pick the single most relevant bookmark for the user today.
+---
+
+# Daily Pill
+
+Pick one bookmark from the user's reading list — the one that is most relevant to what they're doing or thinking about right now.
+
+## Workspace files
+
+All data lives in `~/.openclaw/workspace/daily-pill/`:
+- `bookmarks.md` — saved links with metadata
+- `pill-history.md` — log of past pills sent
+
+## Step 1: Understand current context
+
+1. Read `~/.openclaw/workspace/USER.md` for the user's profile and interests
+2. Read today's and yesterday's daily memory files for recent context
+3. Read `~/.openclaw/workspace/MEMORY.md` for longer-term context
+4. Form a picture of what the user is currently focused on, working through, or curious about
+
+## Step 2: Pick the best bookmark
+
+1. Read `bookmarks.md` and `pill-history.md`
+2. For each bookmark not recently sent (check `pill-history.md`):
+   - Score by relevance to the user's *current* context — not general interests, but what's top of mind right now
+   - Prefer bookmarks never sent over those already featured
+   - Prefer recently added bookmarks if relevance is similar
+3. Select the single best candidate
+4. Fetch the page and verify it's actually worth reading
+
+## Step 3: Send or skip
+
+**If a good match exists**, send a short message:
+- One sentence on why this is relevant to what the user is doing right now
+- The link title and URL
+- Keep it to 2-3 lines max — this is a nudge, not a summary
+
+**If nothing fits**, skip entirely. Don't force a pill just to fill the slot. Log the skip to `pill-history.md`.
+
+## Step 4: Handle the response
+
+After sending, the user might:
+
+- **React positively or ask questions** — engage naturally, help them explore the topic
+- **Ask to remove it** — delete the bookmark from `bookmarks.md` and confirm
+- **Want to take notes** — append their notes to the bookmark entry in `bookmarks.md` under a `notes:` field
+- **Ignore it** — that's fine, move on
+
+## Step 5: Update state
+
+- In `pill-history.md`: append an entry with the date, link sent (or skip reason)
+- In `bookmarks.md`: update `last_sent` date for the bookmark if one was sent
+
+## Bookmarks format
+
+Each bookmark in `bookmarks.md` should have:
+- URL
+- Title
+- Date added
+- Tags
+- `times_sent: 0` (incremented each time it's picked as a pill)
+- `last_sent:` (date, empty if never sent)
+- `notes:` (user notes, empty if none)
+
+## Adding bookmarks
+
+When the user shares a link to save, append it to `bookmarks.md` with the fields above. Fetch the title if not provided. Infer tags from the content and user context.

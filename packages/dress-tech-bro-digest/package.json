@@ -1,0 +1,14 @@
+{
+  "name": "@clawset/dress-tech-bro-digest",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Daily digest of tech news from configurable sources and topics",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "skills"],
+  "keywords": ["clawset", "clawset-dress", "digest", "tech", "news"],
+  "clawset": { "type": "dress", "openclaw": ">=2026.3" },
+  "scripts": { "build": "tsc", "clean": "rm -rf dist *.tsbuildinfo" },
+  "dependencies": { "@clawset/core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.7.0" }
+}

@@ -135,13 +135,27 @@ export default class Dress extends BaseCommand {
     // The installer copies skill files to ~/.clawset/dresses/<id>/<skillName>.md
     const dressPackageDir = join(this.clawsetPaths.dresses, dressId);
     const bundledSkills = new Map<string, string>();
-    for (const skillName of Object.keys(resolved.files.skills)) {
+    for (const [skillName, skillDef] of Object.entries(resolved.files.skills)) {
       const fullPath = join(dressPackageDir, `${skillName}.md`);
-      if (existsSync(fullPath)) {
-        bundledSkills.set(skillName, await readFile(fullPath, 'utf-8'));
-      } else {
+      if (!existsSync(fullPath)) {
         this.error(`Bundled skill file not found: ${fullPath} (for skill "${skillName}")`);
       }
+      let content = await readFile(fullPath, 'utf-8');
+
+      // Resolve template vars if present
+      const vars = typeof skillDef === 'object' ? skillDef.vars : undefined;
+      if (vars && Object.keys(vars).length > 0) {
+        for (const [key, value] of Object.entries(vars)) {
+          content = content.replaceAll(`{{${key}}}`, value);
+        }
+        // Validate no unresolved placeholders remain
+        const unresolved = content.match(/\{\{[^}]+\}\}/g);
+        if (unresolved) {
+          this.error(`Unresolved template vars in skill "${skillName}": ${unresolved.join(', ')}`);
+        }
+      }
+
+      bundledSkills.set(skillName, content);
     }
 
     // Determine which skills are bundled vs need ClawHub install

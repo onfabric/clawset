@@ -93,7 +93,8 @@ export async function installDress(
   await mkdir(dressDir, { recursive: true });
 
   // Copy bundled skill files
-  for (const [skillName, skillPath] of Object.entries(dress._input.files?.skills ?? {})) {
+  for (const [skillName, skillDef] of Object.entries(dress._input.files?.skills ?? {})) {
+    const skillPath = typeof skillDef === 'string' ? skillDef : skillDef.path;
     const skillSrc = join(sourceDir, skillPath);
     if (existsSync(skillSrc)) {
       await cp(skillSrc, join(dressDir, `${skillName}.md`));

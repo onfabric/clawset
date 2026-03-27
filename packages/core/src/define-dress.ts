@@ -24,6 +24,11 @@ export type InferParams<P extends Record<string, ParamDef>> = {
 // Dress input — what the dress author writes
 // ---------------------------------------------------------------------------
 
+/** Skill file definition in dress input — allows vars as a function of params */
+type SkillFileInput<P extends Record<string, ParamDef>> =
+  | string  // plain path
+  | { path: string; vars: (params: InferParams<P>) => Record<string, string> };
+
 export interface DressInput<P extends Record<string, ParamDef> = Record<string, never>> {
   id: string;
   name: string;
@@ -39,7 +44,10 @@ export interface DressInput<P extends Record<string, ParamDef> = Record<string, 
 
   memory?: Partial<MemoryContract>;
   heartbeat?: string[];
-  files?: Partial<DressFiles>;
+  files?: {
+    skills?: Record<string, SkillFileInput<P>>;
+    templates?: string[];
+  };
   workspace?: Record<string, string>;
 }
 
@@ -87,6 +95,20 @@ export function defineDress<P extends Record<string, ParamDef> = Record<string, 
       const crons =
         typeof input.crons === 'function' ? input.crons(params) : input.crons;
 
+      // Resolve skill file definitions — evaluate vars functions
+      const inputSkills = input.files?.skills ?? {};
+      const resolvedSkills: Record<string, string | { path: string; vars: Record<string, string> }> = {};
+      for (const [name, def] of Object.entries(inputSkills)) {
+        if (typeof def === 'string') {
+          resolvedSkills[name] = def;
+        } else {
+          resolvedSkills[name] = {
+            path: def.path,
+            vars: def.vars(params),
+          };
+        }
+      }
+
       const raw = {
         id: input.id,
         name: input.name,
@@ -97,7 +119,10 @@ export function defineDress<P extends Record<string, ParamDef> = Record<string, 
         crons,
         memory: input.memory ?? {},
         heartbeat: input.heartbeat ?? [],
-        files: input.files ?? {},
+        files: {
+          skills: resolvedSkills,
+          templates: input.files?.templates ?? [],
+        },
         workspace: input.workspace ?? {},
       };
 
