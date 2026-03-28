@@ -10,11 +10,9 @@ export default defineUnderwear({
     {
       id: 'waclaw',
       spec: '@onfabric/waclaw-plugin',
-      setupCommand: 'openclaw configure',
+      setupCommand: 'openclaw waclaw setup',
       setupNotes: [
-        'During setup, select Channels > WhatsApp (waclaw)',
         'You will need a connector token from the waclaw admin API',
-        'Optionally set a default outbound phone number (E.164 format, e.g. +12025550123)',
       ],
     },
   ],
