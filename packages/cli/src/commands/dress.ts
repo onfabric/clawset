@@ -1,13 +1,12 @@
 import { Args, Flags } from '@oclif/core';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { spawn } from 'node:child_process';
-import { input, number, confirm, select } from '@inquirer/prompts';
+import { input, confirm, select, checkbox } from '@inquirer/prompts';
 import { Listr } from 'listr2';
 import {
-  z,
   mergeDresses,
   diffState,
   generateDresscode,
@@ -15,25 +14,32 @@ import {
   type ResolvedDress,
   type DressEntry,
   type StateFile,
-  type ParamDef,
   type AppliedCron,
   type PluginDef,
 } from '@clawset/core';
+import type { DressJson, Weekday, UnderwearJson, DressEntryV2 } from '@clawset/core';
 import { BaseCommand } from '../base.js';
-import { installDress, resolveDress } from '../lib/installer.js';
+import { createRegistryProvider, type RegistryProvider } from '../lib/registry.js';
+import {
+  compileDress,
+  validateDress,
+  type CronScheduleChoice,
+  type CompiledDress,
+} from '../lib/compile.js';
+
+const ALL_DAYS: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 export default class Dress extends BaseCommand {
   static summary = 'Install and activate a dress';
 
   static examples = [
-    '<%= config.bin %> dress ./packages/dress-fitness-coach',
-    '<%= config.bin %> dress @clawset/fitness-coach',
-    '<%= config.bin %> dress ./my-dress --dry-run',
+    '<%= config.bin %> dress fitness-coach',
+    '<%= config.bin %> dress tech-bro-digest --dry-run',
   ];
 
   static args = {
-    specifier: Args.string({
-      description: 'Dress package specifier (local path or package name)',
+    id: Args.string({
+      description: 'Dress ID from the registry',
       required: false,
     }),
   };
@@ -43,13 +49,6 @@ export default class Dress extends BaseCommand {
     'dry-run': Flags.boolean({
       description: 'Show what would change without applying',
       default: false,
-    }),
-    'params-file': Flags.string({
-      description: 'JSON file with param values',
-    }),
-    param: Flags.string({
-      description: 'Set a param (key=value)',
-      multiple: true,
     }),
     yes: Flags.boolean({
       char: 'y',
@@ -62,104 +61,229 @@ export default class Dress extends BaseCommand {
     const { args, flags } = await this.parse(Dress);
     const config = await this.loadConfig();
 
-    let specifier = args.specifier;
+    const registry = createRegistryProvider(process.cwd());
+    const state = await this.stateManager.load();
 
-    // If no specifier, discover available dresses and prompt
-    if (!specifier) {
-      const state = await this.stateManager.load();
+    // Pick a dress
+    let dressId = args.id;
+    if (!dressId) {
+      const index = await registry.getIndex();
       const activeIds = new Set(Object.keys(state.dresses));
-      const dresses = (await this.discoverDresses()).filter((d) => !activeIds.has(d.id));
-      if (dresses.length === 0) {
-        this.error('No available dresses found.\nAll dresses may already be active, or provide a path: clawset dress ./path/to/dress');
+      const available = Object.entries(index.dresses).filter(([id]) => !activeIds.has(id));
+
+      if (available.length === 0) {
+        this.error('No available dresses. All dresses may already be active.');
       }
-      specifier = await select({
+
+      dressId = await select({
         message: 'Choose a dress to wear',
-        choices: dresses.map((d) => ({ name: `${d.name} ${chalk.dim(`(${d.id})`)}`, value: d.path, description: d.description })),
+        choices: available.map(([id, entry]) => ({
+          name: `${entry.name} ${chalk.dim(`(${id})`)}`,
+          value: id,
+          description: entry.description,
+        })),
       });
     }
 
-    // Install the dress package
-    this.log(`\nResolving ${chalk.cyan(specifier)}...`);
-    const { dress, packageName } = await installDress(
-      specifier,
-      this.clawsetPaths.dresses,
-    );
+    // Fetch dress definition + skills
+    this.log(`\nResolving ${chalk.cyan(dressId)}...`);
 
-    const dressId = dress._input.id;
-    const dressName = dress._input.name;
-    const dressVersion = dress._input.version;
+    let dress: DressJson;
+    try {
+      dress = await registry.getDressJson(dressId);
+    } catch {
+      this.error(`Dress "${dressId}" not found in the registry.`);
+    }
 
-    this.log(`\n  ${chalk.bold(dressName)} ${chalk.dim(`v${dressVersion}`)}\n`);
+    this.log(`\n  ${chalk.bold(dress.name)} ${chalk.dim(`v${dress.version}`)}\n`);
 
     // Check if already dressed
-    const state = await this.stateManager.load();
-    if (this.stateManager.isDressed(state, dressId)) {
-      this.error(`Already dressed in "${dressId}". Undress first: clawset undress ${dressId}`);
+    if (this.stateManager.isDressed(state, dress.id)) {
+      this.error(`Already dressed in "${dress.id}". Undress first: clawset undress ${dress.id}`);
     }
 
-    // Collect params
-    const params = await this.collectParams(dress.paramDefs(), flags);
-
-    // Resolve dress with params
-    let resolved: ResolvedDress;
-    try {
-      resolved = resolveDress(dress, params);
-    } catch (err) {
-      this.error(`Invalid dress definition: ${err instanceof Error ? err.message : err}`);
-    }
-
-    // Check underwear dependencies
-    for (const uwId of resolved.requires.underwear ?? []) {
-      if (!state.underwear?.[uwId]) {
-        this.error(
-          `Missing underwear: "${uwId}"\n` +
-          `Run "clawset underwear add ${uwId}" first.`,
-        );
+    // Fetch bundled skill contents
+    const skillContents = new Map<string, string>();
+    for (const [skillId, skillDef] of Object.entries(dress.skills)) {
+      if (skillDef.source === 'clawhub') continue;
+      try {
+        const content = await registry.getSkillContent(dress.id, skillId);
+        skillContents.set(skillId, content);
+      } catch {
+        this.error(`Failed to fetch skill "${skillId}" for dress "${dress.id}".`);
       }
     }
 
-    // Check hard dependencies
-    for (const [depId, depVersion] of Object.entries(resolved.requires.dresses)) {
+    // Validate dress definition
+    const validation = validateDress(dress, skillContents);
+    if (validation.errors.length > 0) {
+      for (const err of validation.errors) {
+        this.log(`  ${chalk.red('✗')} ${err}`);
+      }
+      this.error('Dress definition has errors.');
+    }
+    for (const warn of validation.warnings) {
+      this.warn(warn);
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase: Dependencies
+    // -----------------------------------------------------------------------
+
+    // Check underwear
+    for (const uwId of dress.requires.underwear) {
+      if (!state.underwear?.[uwId]) {
+        const install = await confirm({
+          message: `Dress "${dress.name}" requires underwear "${uwId}". Install it now?`,
+          default: true,
+        });
+        if (!install) {
+          this.log('  You wouldn\'t go out without underwear, would you?');
+          this.error(`Missing underwear: "${uwId}". Cannot dress without it.`);
+        }
+        await this.installUnderwear(registry, uwId, state);
+      }
+    }
+
+    // Check hard dress deps
+    for (const [depId, depVersion] of Object.entries(dress.requires.dresses)) {
       if (!this.stateManager.isDressed(state, depId)) {
         this.error(
           `Missing required dress: "${depId}" (${depVersion})\n` +
-          `Install it first: clawset dress <${depId}-package>`,
+          `Install it first: clawset dress ${depId}`,
         );
       }
     }
 
-    // Check for soft dependencies
-    for (const depId of Object.keys(resolved.requires.optionalDresses)) {
+    // Check optional dress deps
+    for (const depId of Object.keys(dress.requires.optionalDresses)) {
       if (!this.stateManager.isDressed(state, depId)) {
         this.warn(`Optional dress "${depId}" is not active — some features may be limited.`);
       }
     }
 
-    // Validate cron channels — must be 'last' or declared in requires.underwear with active underwear
-    const declaredUnderwear = new Set(resolved.requires.underwear ?? []);
-    for (const cron of resolved.crons) {
-      const ch = cron.channel ?? 'last';
-      if (ch === 'last') continue;
-      if (!declaredUnderwear.has(ch)) {
-        this.error(
-          `Cron "${cron.id}" uses channel "${ch}" but it is not declared in requires.underwear.\n` +
-          `Add "${ch}" to the dress's requires.underwear array.`,
-        );
-      }
-      if (!state.underwear?.[ch]) {
-        this.error(
-          `Cron "${cron.id}" uses channel "${ch}" but that underwear is not active.\n` +
-          `Run "clawset underwear add ${ch}" first.`,
-        );
-      }
+    // -----------------------------------------------------------------------
+    // Phase: Prompts — collect schedule + skill params
+    // -----------------------------------------------------------------------
+
+    // Timezone (once, saved to config)
+    let timezone = config.timezone ?? 'UTC';
+    if (!config.timezone || config.timezone === 'UTC') {
+      const tz = await input({
+        message: 'Your timezone (IANA format)',
+        default: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      });
+      timezone = tz;
+      // Save timezone to config for future dresses
+      const configData = JSON.parse(await readFile(this.clawsetPaths.config, 'utf-8'));
+      configData.timezone = timezone;
+      await writeFile(this.clawsetPaths.config, JSON.stringify(configData, null, 2) + '\n');
     }
 
-    // Merge all dresses including the new one
+    // Cron schedules
+    const cronSchedules: Record<string, CronScheduleChoice> = {};
+    if (dress.crons.length > 0) {
+      this.log(chalk.bold(`  Scheduling ${dress.crons.length} cron(s):\n`));
+    }
+
+    for (const cron of dress.crons) {
+      const defaultTime = cron.defaults.time ?? '09:00';
+      const defaultDays = cron.defaults.days ?? ALL_DAYS;
+
+      this.log(`  ${chalk.cyan(cron.name)} → skill: ${cron.skill}`);
+
+      const time = await input({
+        message: `  Time (HH:MM)`,
+        default: defaultTime,
+        validate: (v) => /^\d{2}:\d{2}$/.test(v) || 'Use HH:MM format',
+      });
+
+      const days = await checkbox({
+        message: `  Days`,
+        choices: ALL_DAYS.map((d) => ({
+          name: d,
+          value: d as Weekday,
+          checked: defaultDays.includes(d),
+        })),
+      }) as Weekday[];
+
+      if (days.length === 0) {
+        this.error('Must select at least one day.');
+      }
+
+      // Channel — auto-select if only one underwear, prompt if multiple
+      let channel: string | undefined;
+      if (cron.channel) {
+        channel = cron.channel;
+      } else if (dress.requires.underwear.length === 1) {
+        channel = dress.requires.underwear[0];
+      } else if (dress.requires.underwear.length > 1) {
+        channel = await select({
+          message: `  Channel`,
+          choices: dress.requires.underwear.map((id) => ({ name: id, value: id })),
+        });
+      }
+
+      cronSchedules[cron.id] = { time, days, channel };
+      this.log('');
+    }
+
+    // Skill params
+    const skillParams: Record<string, Record<string, unknown>> = {};
+    for (const [skillId, skillDef] of Object.entries(dress.skills)) {
+      const paramEntries = Object.entries(skillDef.params);
+      if (paramEntries.length === 0) continue;
+
+      this.log(chalk.bold(`  Params for skill "${skillId}":\n`));
+      const values: Record<string, unknown> = {};
+
+      for (const [paramName, paramDef] of paramEntries) {
+        if (paramDef.type === 'number') {
+          const raw = await input({
+            message: `  ${paramDef.description}`,
+            default: String(paramDef.default),
+          });
+          values[paramName] = Number(raw);
+        } else if (paramDef.type === 'string[]') {
+          const raw = await input({
+            message: `  ${paramDef.description}`,
+            default: (paramDef.default as string[]).join(', '),
+          });
+          values[paramName] = raw.split(',').map((s: string) => s.trim()).filter(Boolean);
+        } else {
+          const raw = await input({
+            message: `  ${paramDef.description}`,
+            default: String(paramDef.default),
+          });
+          values[paramName] = raw;
+        }
+      }
+
+      skillParams[skillId] = values;
+      this.log('');
+    }
+
+    // -----------------------------------------------------------------------
+    // Phase: Compile
+    // -----------------------------------------------------------------------
+
+    const compiled = compileDress({
+      dress,
+      skillContents,
+      cronSchedules,
+      skillParams,
+      timezone,
+    });
+
+    // -----------------------------------------------------------------------
+    // Phase: Merge + conflict check
+    // -----------------------------------------------------------------------
+
     const allDresses = new Map<string, ResolvedDress>();
     for (const [id, entry] of Object.entries(state.dresses)) {
       allDresses.set(id, this.reconstructResolved(id, entry));
     }
-    allDresses.set(dressId, resolved);
+    allDresses.set(dress.id, this.compiledToResolved(compiled));
 
     const { state: desired, conflicts } = mergeDresses(allDresses);
 
@@ -176,64 +300,7 @@ export default class Dress extends BaseCommand {
     const current = this.stateManager.currentApplied(state);
     const diff = diffState(current, desired);
 
-    // Build auto-injected template vars from the dress definition
-    const workspaceRoot = `~/.openclaw/workspace/${dressId}`;
-    const autoVars: Record<string, string> = {
-      'dress.id': dressId,
-      'dress.name': resolved.name,
-      'memory.dailySections': resolved.memory.dailySections.join(', '),
-      'memory.reads': resolved.memory.reads.join(', '),
-      'workspace.root': workspaceRoot,
-    };
-    // Add individual workspace file paths
-    for (const wsPath of Object.keys(resolved.workspace)) {
-      autoVars[`workspace.${wsPath}`] = `~/.openclaw/workspace/${wsPath}`;
-    }
-
-    // Helper: resolve {{...}} template vars in a string
-    const resolveTemplate = (text: string, extraVars?: Record<string, string>): string => {
-      const allVars = extraVars ? { ...autoVars, ...extraVars } : autoVars;
-      for (const [key, value] of Object.entries(allVars)) {
-        text = text.replaceAll(`{{${key}}}`, value);
-      }
-      return text;
-    };
-
-    // Resolve heartbeat rules
-    const resolvedHeartbeat = resolved.heartbeat.map((rule, i) => {
-      const result = resolveTemplate(rule);
-      const unresolved = result.match(/\{\{[^}]+\}\}/g);
-      if (unresolved) {
-        this.error(`Unresolved template vars in heartbeat rule ${i + 1}: ${[...new Set(unresolved)].join(', ')}`);
-      }
-      return result;
-    });
-
-    // Resolve bundled skill files (read content now for later copy)
-    // The installer copies skill files to ~/.clawset/dresses/<id>/<skillName>.md
-    const dressPackageDir = join(this.clawsetPaths.dresses, dressId);
-    const bundledSkills = new Map<string, string>();
-    for (const [skillName, skillDef] of Object.entries(resolved.files.skills)) {
-      const fullPath = join(dressPackageDir, `${skillName}.md`);
-      if (!existsSync(fullPath)) {
-        this.error(`Bundled skill file not found: ${fullPath} (for skill "${skillName}")`);
-      }
-      const skillVars = typeof skillDef === 'object' ? skillDef.vars : undefined;
-      let content = resolveTemplate(await readFile(fullPath, 'utf-8'), skillVars);
-
-      // Validate no unresolved placeholders remain
-      const unresolved = content.match(/\{\{[^}]+\}\}/g);
-      if (unresolved) {
-        this.error(`Unresolved template vars in skill "${skillName}": ${[...new Set(unresolved)].join(', ')}`);
-      }
-
-      bundledSkills.set(skillName, content);
-    }
-
-    // Determine which skills are bundled vs need ClawHub install
-    const clawHubSkills = resolved.requires.skills.filter((s) => !bundledSkills.has(s));
-
-    // Check which plugins actually need installing (skip pre-existing ones)
+    // Check which plugins need installing
     const pluginsToInstall: PluginDef[] = [];
     const pluginsPreExisting: PluginDef[] = [];
     for (const plugin of diff.pluginsToAdd) {
@@ -244,47 +311,42 @@ export default class Dress extends BaseCommand {
       }
     }
 
-    // Show what will happen
+    // -----------------------------------------------------------------------
+    // Phase: Preview
+    // -----------------------------------------------------------------------
+
     this.log(chalk.bold('Changes:'));
     for (const p of pluginsToInstall) {
       const setup = p.setupCommand ? 'requires setup' : '';
       this.log(`  ${chalk.green('+')} plugin: ${p.id} ${chalk.dim(`(${p.spec})`)}${setup ? ` ${chalk.dim(`[${setup}]`)}` : ''}`);
     }
     for (const p of pluginsPreExisting) {
-      this.log(`  ${chalk.dim('~')} plugin: ${p.id} ${chalk.dim('(already installed — skipping)')}`);
+      this.log(`  ${chalk.dim('~')} plugin: ${p.id} ${chalk.dim('(already installed)')}`);
     }
-    if (diff.skillsToAdd.length > 0) {
-      for (const s of diff.skillsToAdd) {
-        const source = bundledSkills.has(s) ? 'bundled' : 'ClawHub';
-        this.log(`  ${chalk.green('+')} skill: ${s} ${chalk.dim(`(${source})`)}`);
-      }
+    for (const s of diff.skillsToAdd) {
+      const source = compiled.bundledSkills.has(s) ? 'bundled' : 'ClawHub';
+      this.log(`  ${chalk.green('+')} skill: ${s} ${chalk.dim(`(${source})`)}`);
     }
-    if (diff.cronsToAdd.length > 0) {
-      for (const c of diff.cronsToAdd) {
-        this.log(`  ${chalk.green('+')} cron: ${c.name} ${chalk.dim(`(${c.schedule})`)} → skill: ${chalk.cyan(c.skill)}`);
-      }
+    for (const c of compiled.crons) {
+      this.log(`  ${chalk.green('+')} cron: ${c.name} ${chalk.dim(`(${c.schedule})`)} → skill: ${chalk.cyan(c.skill)}`);
     }
-    if (resolved.memory.dailySections.length > 0) {
-      for (const s of resolved.memory.dailySections) {
-        this.log(`  ${chalk.green('+')} memory section: ${s}`);
-      }
+    for (const s of compiled.memory.dailySections) {
+      this.log(`  ${chalk.green('+')} memory section: ${s}`);
     }
-    if (resolvedHeartbeat.length > 0) {
-      this.log(`  ${chalk.green('+')} heartbeat: ${resolvedHeartbeat.length} rule(s)`);
+    if (compiled.heartbeat.length > 0) {
+      this.log(`  ${chalk.green('+')} heartbeat: ${compiled.heartbeat.length} rule(s)`);
     }
-    for (const wp of Object.keys(resolved.workspace)) {
+    for (const wp of Object.keys(compiled.workspace)) {
       this.log(`  ${chalk.green('+')} workspace: ~/.openclaw/workspace/${wp}`);
     }
-    this.log(`  ${chalk.green('+')} dresscode: ~/.openclaw/dresses/${dressId}/DRESSCODE.md`);
+    this.log(`  ${chalk.green('+')} dresscode: ~/.openclaw/dresses/${dress.id}/DRESSCODE.md`);
     this.log('');
 
-    // Dry run exits here
     if (flags['dry-run']) {
       this.log(chalk.yellow('Dry run — no changes applied.'));
       return;
     }
 
-    // Confirm
     if (!flags.yes) {
       const proceed = await confirm({ message: 'Apply changes?', default: true });
       if (!proceed) {
@@ -293,7 +355,7 @@ export default class Dress extends BaseCommand {
       }
     }
 
-    // Verify openclaw is reachable before making any changes
+    // Verify openclaw health
     const health = await this.openclawDriver.health();
     if (!health.ok) {
       this.error(
@@ -303,7 +365,10 @@ export default class Dress extends BaseCommand {
       );
     }
 
-    // Lock and apply
+    // -----------------------------------------------------------------------
+    // Phase: Apply
+    // -----------------------------------------------------------------------
+
     await this.stateManager.lock();
     const snapshot = await this.gitManager.snapshot();
 
@@ -313,7 +378,7 @@ export default class Dress extends BaseCommand {
       const installedSkills: string[] = [];
       const installedPlugins: string[] = [];
 
-      // Phase 1: install plugins, run setup, restart gateway
+      // Install plugins
       if (pluginsToInstall.length > 0) {
         const installTask = new Listr([{
           title: 'Installing plugins',
@@ -326,7 +391,7 @@ export default class Dress extends BaseCommand {
         }], { concurrent: false });
         await installTask.run();
 
-        // Run plugin setup outside Listr
+        // Run plugin setup
         for (const plugin of pluginsToInstall) {
           if (plugin.setupNotes.length > 0) {
             this.log('');
@@ -336,12 +401,11 @@ export default class Dress extends BaseCommand {
           }
 
           if (plugin.setupCommand) {
-            // Interactive setup command (for complex flows like OAuth)
             this.log(`\n${chalk.bold(`Setting up ${plugin.id}...`)}`);
             this.log('');
-            const [cmd, ...args] = plugin.setupCommand.split(' ');
+            const [cmd, ...cmdArgs] = plugin.setupCommand.split(' ');
             const exitCode = await new Promise<number>((resolve, reject) => {
-              const child = spawn(cmd, args, { stdio: 'inherit' });
+              const child = spawn(cmd, cmdArgs, { stdio: 'inherit' });
               child.on('close', (code: number) => resolve(code));
               child.on('error', reject);
             });
@@ -355,7 +419,6 @@ export default class Dress extends BaseCommand {
               }
             }
           } else {
-            // Auto-prompt from plugin's configSchema
             const schema = await this.openclawDriver.pluginConfigSchema(plugin.id);
             if (schema && Object.keys(schema.properties).length > 0) {
               this.log(`\n${chalk.bold(`Configuring ${plugin.id}...`)}\n`);
@@ -374,7 +437,7 @@ export default class Dress extends BaseCommand {
           }
         }
 
-        // Restart gateway and wait for it to be healthy
+        // Restart gateway
         this.log('');
         const restartTask = new Listr([{
           title: 'Restarting gateway',
@@ -391,25 +454,23 @@ export default class Dress extends BaseCommand {
         await restartTask.run();
       }
 
-      // Phase 2: skills, crons, config files
+      // Skills, crons, config files
       const tasks = new Listr([
         {
           title: 'Installing skills',
-          skip: () => resolved.requires.skills.length === 0,
+          skip: () => compiled.bundledSkills.size === 0 && compiled.clawHubSkills.length === 0,
           task: async () => {
-            // Copy bundled skills
-            for (const [skillName, content] of bundledSkills) {
+            for (const [skillName, content] of compiled.bundledSkills) {
               if (await this.openclawDriver.skillExists(skillName)) {
-                this.warn(`Skill "${skillName}" already exists — skipping (won't overwrite)`);
+                this.warn(`Skill "${skillName}" already exists — skipping`);
               } else {
                 await this.openclawDriver.skillCopyBundled(skillName, content);
                 installedSkills.push(skillName);
               }
             }
-            // Install ClawHub skills
-            for (const slug of clawHubSkills) {
+            for (const slug of compiled.clawHubSkills) {
               if (await this.openclawDriver.skillExists(slug)) {
-                this.warn(`Skill "${slug}" already exists — skipping (won't overwrite)`);
+                this.warn(`Skill "${slug}" already exists — skipping`);
               } else {
                 await this.openclawDriver.skillInstall(slug);
                 installedSkills.push(slug);
@@ -419,12 +480,12 @@ export default class Dress extends BaseCommand {
         },
         {
           title: 'Setting up workspace files',
-          skip: () => Object.keys(resolved.workspace).length === 0,
+          skip: () => Object.keys(compiled.workspace).length === 0,
           task: async () => {
             const workspaceDir = join(this.openclawPaths.root, 'workspace');
-            for (const [filePath, initialContent] of Object.entries(resolved.workspace)) {
+            for (const [filePath, initialContent] of Object.entries(compiled.workspace)) {
               const fullPath = join(workspaceDir, filePath);
-              if (existsSync(fullPath)) continue; // don't overwrite existing files
+              if (existsSync(fullPath)) continue;
               await mkdir(join(fullPath, '..'), { recursive: true });
               await writeFile(fullPath, initialContent);
             }
@@ -432,9 +493,9 @@ export default class Dress extends BaseCommand {
         },
         {
           title: 'Adding crons',
-          skip: () => diff.cronsToAdd.length === 0,
+          skip: () => compiled.crons.length === 0,
           task: async () => {
-            for (const cron of diff.cronsToAdd) {
+            for (const cron of compiled.crons) {
               await this.openclawDriver.cronAdd(cron);
               appliedCrons.push({
                 qualifiedId: `${cron.dressId}:${cron.id}`,
@@ -448,9 +509,10 @@ export default class Dress extends BaseCommand {
         {
           title: 'Writing DRESSCODE.md',
           task: async () => {
-            const dressDir = join(this.openclawPaths.dresses, dressId);
+            const dressDir = join(this.openclawPaths.dresses, dress.id);
             await mkdir(dressDir, { recursive: true });
-            const dresscode = generateDresscode({ ...resolved, heartbeat: resolvedHeartbeat });
+            const resolved = this.compiledToResolved(compiled);
+            const dresscode = generateDresscode(resolved);
             const dresscodePath = join(dressDir, 'DRESSCODE.md');
             await writeFile(dresscodePath, dresscode);
             appliedFiles.push(dresscodePath);
@@ -458,46 +520,42 @@ export default class Dress extends BaseCommand {
         },
         {
           title: 'Writing heartbeat rules',
-          skip: () => resolvedHeartbeat.length === 0,
+          skip: () => compiled.heartbeat.length === 0,
           task: async () => {
-            await this.appendHeartbeatRules(dressId, resolvedHeartbeat);
+            await this.appendHeartbeatRules(dress.id, compiled.heartbeat);
           },
         },
         {
           title: 'Updating DRESSES.md',
           task: async () => {
-            await this.updateDressesIndex(state, dressId, resolved);
-          },
-        },
-        {
-          title: 'Injecting DRESSES.md into AGENTS.md',
-          skip: () => this.agentsHasClawsetHook(),
-          task: async () => {
-            await this.injectAgentsHook();
+            await this.updateDressesIndex(state, dress.id, compiled);
           },
         },
         {
           title: 'Saving state',
           task: async () => {
+            const allSkills = [...compiled.bundledSkills.keys(), ...compiled.clawHubSkills];
             const entry: DressEntry = {
-              package: packageName,
-              version: dressVersion,
+              package: dress.id,
+              version: dress.version,
               installedAt: new Date().toISOString(),
-              params,
+              params: Object.fromEntries(
+                Object.entries(skillParams).filter(([, v]) => Object.keys(v).length > 0),
+              ),
               applied: {
                 crons: appliedCrons,
-                skills: [...resolved.requires.skills],
+                skills: allSkills,
                 installedSkills,
-                plugins: resolved.requires.plugins.map((p) => p.id),
+                plugins: compiled.plugins.map((p) => p.id),
                 installedPlugins,
-                memorySections: [...resolved.memory.dailySections],
+                memorySections: [...compiled.memory.dailySections],
                 files: appliedFiles,
-                heartbeatEntries: [...resolvedHeartbeat],
-                workspaceFiles: Object.keys(resolved.workspace),
-                underwear: [...(resolved.requires.underwear ?? [])],
+                heartbeatEntries: [...compiled.heartbeat],
+                workspaceFiles: Object.keys(compiled.workspace),
+                underwear: [...compiled.underwear],
               },
             };
-            state.dresses[dressId] = entry;
+            state.dresses[dress.id] = entry;
             await this.stateManager.save(state);
           },
         },
@@ -506,21 +564,20 @@ export default class Dress extends BaseCommand {
       await tasks.run();
 
       // Git commit
-      const paramSummary = Object.entries(params)
-        .map(([k, v]) => `  ${k}: ${JSON.stringify(v)}`)
-        .join('\n');
       const body = [
-        resolved.requires.skills.length > 0 ? `skills: ${resolved.requires.skills.join(', ')}` : '',
-        resolved.crons.length > 0 ? `crons: ${resolved.crons.map((c) => `${c.name} → ${c.skill}`).join(', ')}` : '',
-        resolved.memory.dailySections.length > 0 ? `memory: ${resolved.memory.dailySections.join(', ')}` : '',
-        paramSummary ? `\nparams:\n${paramSummary}` : '',
+        allSkills().length > 0 ? `skills: ${allSkills().join(', ')}` : '',
+        compiled.crons.length > 0 ? `crons: ${compiled.crons.map((c) => `${c.name} → ${c.skill}`).join(', ')}` : '',
+        compiled.memory.dailySections.length > 0 ? `memory: ${compiled.memory.dailySections.join(', ')}` : '',
       ].filter(Boolean).join('\n');
 
-      await this.gitManager.commit('feat', dressId, `dress v${dressVersion}`, body);
+      await this.gitManager.commit('feat', dress.id, `dress v${dress.version}`, body);
 
-      this.log(`\n${chalk.green('✓')} Dressed in ${chalk.bold(dressName)}!`);
+      this.log(`\n${chalk.green('✓')} Dressed in ${chalk.bold(dress.name)}!`);
+
+      function allSkills() {
+        return [...compiled.bundledSkills.keys(), ...compiled.clawHubSkills];
+      }
     } catch (err) {
-      // Rollback on failure
       if (snapshot) {
         await this.gitManager.rollback(snapshot);
       }
@@ -530,78 +587,135 @@ export default class Dress extends BaseCommand {
     }
   }
 
-  private async collectParams(
-    paramDefs: Record<string, ParamDef>,
-    flags: { 'params-file'?: string; param?: string[] },
-  ): Promise<Record<string, unknown>> {
-    const params: Record<string, unknown> = {};
-    const entries = Object.entries(paramDefs);
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
 
-    if (entries.length === 0) return params;
-
-    // Load from file if provided
-    if (flags['params-file']) {
-      const raw = await readFile(flags['params-file'], 'utf-8');
-      Object.assign(params, JSON.parse(raw));
+  private async installUnderwear(
+    registry: RegistryProvider,
+    underwearId: string,
+    state: StateFile,
+  ): Promise<void> {
+    let uw: UnderwearJson;
+    try {
+      uw = await registry.getUnderwearJson(underwearId);
+    } catch {
+      this.error(`Underwear "${underwearId}" not found in the registry.`);
     }
 
-    // Apply --param flags
-    for (const p of flags.param ?? []) {
-      const eqIdx = p.indexOf('=');
-      if (eqIdx === -1) continue;
-      const key = p.slice(0, eqIdx);
-      const value = p.slice(eqIdx + 1);
-      try {
-        params[key] = JSON.parse(value);
-      } catch {
-        params[key] = value;
-      }
-    }
+    this.log(`\n  Installing underwear: ${chalk.bold(uw.name)}`);
 
-    // Interactive prompt for missing params
-    for (const [key, def] of entries) {
-      if (params[key] !== undefined) continue;
+    const installedPlugins: string[] = [];
 
-      if (!process.stdout.isTTY) {
-        params[key] = def.default;
+    for (const plugin of uw.plugins) {
+      if (await this.openclawDriver.pluginIsInstalled(plugin.id)) {
+        this.log(`  ${chalk.dim('~')} plugin: ${plugin.id} (already installed)`);
         continue;
       }
 
-      const schema = def.schema as z.ZodTypeAny;
+      this.log(`  ${chalk.green('+')} plugin: ${plugin.id}`);
+      await this.openclawDriver.pluginInstall(plugin.spec);
+      installedPlugins.push(plugin.id);
 
-      if (schema instanceof z.ZodArray) {
-        const raw = await input({
-          message: def.description,
-          default: Array.isArray(def.default) ? (def.default as string[]).join(', ') : String(def.default),
+      if (plugin.setupNotes.length > 0) {
+        this.log('');
+        for (const note of plugin.setupNotes) {
+          this.log(`  ${chalk.cyan('→')} ${note}`);
+        }
+      }
+
+      if (plugin.setupCommand) {
+        this.log(`\n${chalk.bold(`Setting up ${plugin.id}...`)}\n`);
+        const [cmd, ...cmdArgs] = plugin.setupCommand.split(' ');
+        const exitCode = await new Promise<number>((resolve, reject) => {
+          const child = spawn(cmd, cmdArgs, { stdio: 'inherit' });
+          child.on('close', (code: number) => resolve(code));
+          child.on('error', reject);
         });
-        params[key] = raw.split(',').map((s: string) => s.trim()).filter(Boolean);
-      } else if (schema instanceof z.ZodNumber) {
-        const val = await number({
-          message: def.description,
-          default: def.default as number,
-        });
-        params[key] = val;
+        if (exitCode !== 0) {
+          this.error(`Underwear plugin setup failed (exit code ${exitCode}).`);
+        }
       } else {
-        const val = await input({
-          message: def.description,
-          default: String(def.default),
-        });
-        params[key] = val;
+        const schema = await this.openclawDriver.pluginConfigSchema(plugin.id);
+        if (schema && Object.keys(schema.properties).length > 0) {
+          this.log(`\n${chalk.bold(`Configuring ${plugin.id}...`)}\n`);
+          for (const [key, prop] of Object.entries(schema.properties)) {
+            const isRequired = schema.required.includes(key);
+            const label = prop.description || key;
+            const suffix = isRequired ? '' : ' (optional)';
+            const value = await input({ message: `${label}${suffix}:` });
+            if (value) {
+              await this.openclawDriver.configSet(`${schema.configPrefix}.${key}`, value);
+            } else if (isRequired) {
+              this.error(`Required config "${key}" was not provided.`);
+            }
+          }
+        }
       }
     }
 
-    // Validate all params against their schemas
-    for (const [key, def] of entries) {
-      const result = (def.schema as z.ZodTypeAny).safeParse(params[key]);
-      if (!result.success) {
-        this.error(`Invalid value for param "${key}": ${result.error.issues[0]?.message}`);
-      }
-      params[key] = result.data;
+    // Restart gateway if we installed plugins
+    if (installedPlugins.length > 0) {
+      const restartTask = new Listr([{
+        title: 'Restarting gateway',
+        task: async () => {
+          await this.openclawDriver.gatewayRestart();
+          for (let i = 0; i < 10; i++) {
+            await new Promise((r) => setTimeout(r, 2_000));
+            const h = await this.openclawDriver.health();
+            if (h.ok) return;
+          }
+          throw new Error('Gateway did not become healthy after restart');
+        },
+      }], { concurrent: false });
+      await restartTask.run();
     }
 
-    return params;
+    // Save underwear to state
+    state.underwear[underwearId] = {
+      package: underwearId,
+      version: uw.version,
+      installedAt: new Date().toISOString(),
+      applied: {
+        plugins: uw.plugins.map((p) => p.id),
+        installedPlugins,
+      },
+    };
+    await this.stateManager.save(state);
+    this.log(`  ${chalk.green('✓')} Underwear "${uw.name}" installed.\n`);
   }
 
+  /**
+   * Convert a CompiledDress into a ResolvedDress for merge compatibility.
+   */
+  private compiledToResolved(compiled: CompiledDress): ResolvedDress {
+    const allSkills = [...compiled.bundledSkills.keys(), ...compiled.clawHubSkills];
+    return {
+      id: compiled.id,
+      name: compiled.name,
+      version: compiled.version,
+      description: compiled.description,
+      requires: {
+        plugins: compiled.plugins,
+        skills: allSkills,
+        dresses: {},
+        optionalDresses: {},
+        underwear: compiled.underwear,
+      },
+      secrets: compiled.secrets,
+      crons: compiled.crons.map((c) => ({
+        id: c.id,
+        name: c.name,
+        schedule: c.schedule,
+        skill: c.skill,
+        channel: c.channel === 'last' ? undefined : c.channel,
+      })),
+      memory: compiled.memory,
+      heartbeat: compiled.heartbeat,
+      files: { skills: {}, templates: [] },
+      workspace: compiled.workspace,
+    };
+  }
 
   /**
    * Reconstruct a ResolvedDress from stored state for merge calculations.
@@ -642,20 +756,18 @@ export default class Dress extends BaseCommand {
   private async updateDressesIndex(
     state: StateFile,
     newDressId: string,
-    newDress: ResolvedDress,
+    compiled: CompiledDress,
   ): Promise<void> {
     const lines = ['# Active Dresses\n'];
     lines.push('Read each DRESSCODE.md for details on skills, crons, and memory conventions.\n');
 
-    // Existing dresses
     for (const [id] of Object.entries(state.dresses)) {
       lines.push(`## ${id}`);
       lines.push(`DRESSCODE: ~/.openclaw/dresses/${id}/DRESSCODE.md\n`);
     }
 
-    // New dress
     lines.push(`## ${newDressId}`);
-    lines.push(newDress.description || newDress.name);
+    lines.push(compiled.description || compiled.name);
     lines.push(`DRESSCODE: ~/.openclaw/dresses/${newDressId}/DRESSCODE.md\n`);
 
     await writeFile(this.openclawPaths.dressesIndex, lines.join('\n'));
@@ -668,7 +780,6 @@ export default class Dress extends BaseCommand {
       content = await readFile(heartbeatPath, 'utf-8');
     }
 
-    // Don't duplicate if already present
     if (content.includes(`clawset:${dressId}:start`)) return;
 
     const rulesBlock = rules.map((r) => `- ${r}`).join('\n');
@@ -677,76 +788,5 @@ export default class Dress extends BaseCommand {
 
     content = content.trimEnd() + '\n\n' + wrapped + '\n';
     await writeFile(heartbeatPath, content);
-  }
-
-  private agentsHasClawsetHook(): boolean {
-    const agentsPath = join(this.openclawPaths.root, 'workspace', 'AGENTS.md');
-    if (!existsSync(agentsPath)) return false;
-    const content = readFileSync(agentsPath, 'utf-8');
-    return content.includes('DRESSES.md');
-  }
-
-  private async injectAgentsHook(): Promise<void> {
-    const agentsPath = join(this.openclawPaths.root, 'workspace', 'AGENTS.md');
-    if (!existsSync(agentsPath)) return;
-
-    let content = await readFile(agentsPath, 'utf-8');
-    if (content.includes('DRESSES.md')) return;
-
-    // Insert after the Session Startup numbered list
-    const hook = '\n5. If `DRESSES.md` exists in the openclaw root, read it — it lists active dress configurations and where to find their DRESSCODEs.\n';
-
-    // Try to insert after line 4 ("If in MAIN SESSION...")
-    const mainSessionLine = '4. **If in MAIN SESSION**';
-    const idx = content.indexOf(mainSessionLine);
-    if (idx !== -1) {
-      const lineEnd = content.indexOf('\n', idx);
-      if (lineEnd !== -1) {
-        content = content.slice(0, lineEnd + 1) + hook + content.slice(lineEnd + 1);
-      }
-    } else {
-      // Fallback: append after "## Session Startup" section
-      const sectionIdx = content.indexOf('## Session Startup');
-      if (sectionIdx !== -1) {
-        const nextSection = content.indexOf('\n## ', sectionIdx + 1);
-        const insertAt = nextSection !== -1 ? nextSection : content.length;
-        content = content.slice(0, insertAt) + hook + '\n' + content.slice(insertAt);
-      }
-    }
-
-    await writeFile(agentsPath, content);
-  }
-
-  private async discoverDresses(): Promise<Array<{ id: string; name: string; description: string; path: string }>> {
-    const results: Array<{ id: string; name: string; description: string; path: string }> = [];
-    const packagesDir = join(process.cwd(), 'packages');
-    if (!existsSync(packagesDir)) return results;
-
-    const { readdir: readdirAsync } = await import('node:fs/promises');
-    const entries = await readdirAsync(packagesDir);
-
-    for (const entry of entries) {
-      if (!entry.startsWith('dress-')) continue;
-      const pkgJsonPath = join(packagesDir, entry, 'package.json');
-      if (!existsSync(pkgJsonPath)) continue;
-
-      try {
-        const pkg = JSON.parse(await readFile(pkgJsonPath, 'utf-8'));
-        if (pkg.clawset?.type !== 'dress') continue;
-
-        const dressPath = join(packagesDir, entry);
-        const { dress } = await installDress(dressPath, this.clawsetPaths.dresses);
-        results.push({
-          id: dress._input.id,
-          name: dress._input.name,
-          description: dress._input.description ?? pkg.description ?? '',
-          path: dressPath,
-        });
-      } catch {
-        // Skip dresses that can't be loaded
-      }
-    }
-
-    return results;
   }
 }

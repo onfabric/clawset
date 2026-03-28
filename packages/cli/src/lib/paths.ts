@@ -15,6 +15,8 @@ export interface ClawsetPaths {
   dresses: string;
   /** Lock file: ~/.clawset/clawset.lock */
   lock: string;
+  /** Cache directory for fetched registry data: ~/.clawset/cache/ */
+  cache: string;
 }
 
 export function getClawsetPaths(root?: string): ClawsetPaths {
@@ -25,6 +27,7 @@ export function getClawsetPaths(root?: string): ClawsetPaths {
     state: join(base, 'state.json'),
     dresses: join(base, 'dresses'),
     lock: join(base, 'clawset.lock'),
+    cache: join(base, 'cache'),
   };
 }
 

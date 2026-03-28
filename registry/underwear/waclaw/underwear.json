@@ -1,0 +1,15 @@
+{
+  "id": "waclaw",
+  "name": "WhatsApp (waclaw)",
+  "version": "1.0.0",
+  "description": "WhatsApp channel plugin via waclaw proxy — shared across dresses that need WhatsApp messaging.",
+  "plugins": [
+    {
+      "id": "waclaw",
+      "spec": "@onfabric/waclaw-plugin",
+      "setupNotes": [
+        "You will need a connector token from the waclaw admin API"
+      ]
+    }
+  ]
+}

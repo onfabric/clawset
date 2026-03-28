@@ -75,6 +75,7 @@ export default class Init extends Command {
     // Write config
     const config: ClawsetConfig = {
       openclawDir,
+      timezone: 'UTC',
       version: '0.1.0',
     };
     await writeFile(paths.config, JSON.stringify(config, null, 2) + '\n');

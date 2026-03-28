@@ -1,4 +1,4 @@
-// Schemas and types
+// Old schemas (still used by merge.ts, dresscode.ts, state.ts, openclaw.ts)
 export {
   dressIdSchema,
   cronExpressionSchema,
@@ -43,14 +43,6 @@ export type {
 // DRESSCODE generation
 export { generateDresscode } from './dresscode.js';
 
-// Dress definition
-export { defineDress } from './define-dress.js';
-export type { ParamDef, InferParams, DressInput, Dress } from './define-dress.js';
-
-// Underwear definition
-export { defineUnderwear } from './define-underwear.js';
-export type { UnderwearInput, Underwear } from './define-underwear.js';
-
 // Merge and diff
 export { mergeDresses, diffState } from './merge.js';
 export type { MergeConflict, DesiredState, StateDiff } from './merge.js';
@@ -74,5 +66,28 @@ export { cronFromTime, addHours } from './cron-utils.js';
 // Driver interface
 export type { OpenClawDriver, CronListEntry, PluginConfigSchema } from './driver.js';
 
-// Re-export zod for dress authors
-export { z } from 'zod';
+// New JSON-based schemas
+export {
+  dressJsonSchema,
+  cronJsonSchema,
+  skillJsonSchema,
+  skillParamSchema,
+  underwearJsonSchema,
+  registryIndexSchema,
+} from './schemas/index.js';
+
+export type {
+  DressJson,
+  CronJson,
+  SkillJson,
+  SkillParam,
+  Weekday,
+  UnderwearJson,
+  RegistryIndex,
+  RegistryDressEntry,
+  RegistryUnderwearEntry,
+  DressEntry as DressEntryV2,
+  UnderwearEntry as UnderwearEntryV2,
+  StateFile as StateFileV2,
+  ClawsetConfig as ClawsetConfigV2,
+} from './schemas/index.js';

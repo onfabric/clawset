@@ -1,0 +1,25 @@
+{
+  "id": "daily-reflection",
+  "name": "Daily Reflection",
+  "version": "1.0.0",
+  "description": "End-of-day reflection — capture what mattered and set tomorrow's intentions.",
+
+  "requires": {
+    "underwear": ["waclaw"]
+  },
+
+  "crons": [
+    {
+      "id": "daily-reflection",
+      "name": "Daily reflection and tomorrow bullets",
+      "skill": "daily-reflection",
+      "defaults": { "time": "23:00", "days": ["mon", "tue", "wed", "thu", "fri"] }
+    }
+  ],
+
+  "skills": {
+    "daily-reflection": {}
+  },
+
+  "memory": { "dailySections": ["Reflections"] }
+}

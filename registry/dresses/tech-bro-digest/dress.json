@@ -1,0 +1,36 @@
+{
+  "id": "tech-bro-digest",
+  "name": "Tech Bro Digest",
+  "version": "1.0.0",
+  "description": "Daily digest of tech news from configurable sources and topics.",
+
+  "requires": {
+    "underwear": ["waclaw"]
+  },
+
+  "crons": [
+    {
+      "id": "tech-bro-digest",
+      "name": "Tech digest",
+      "skill": "tech-bro-digest",
+      "defaults": { "time": "08:00" }
+    }
+  ],
+
+  "skills": {
+    "tech-bro-digest": {
+      "params": {
+        "sources": {
+          "description": "News sources to search (comma-separated)",
+          "type": "string",
+          "default": "Product Hunt, Hacker News"
+        },
+        "topics": {
+          "description": "Topics to focus on (comma-separated)",
+          "type": "string",
+          "default": "AI agents, Startups"
+        }
+      }
+    }
+  }
+}

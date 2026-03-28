@@ -190,6 +190,7 @@ export const stateFileSchema = z.object({
 
 export const clawsetConfigSchema = z.object({
   openclawDir: z.string(),
+  timezone: z.string().default('UTC'),
   version: z.string().default('0.1.0'),
 });
 

@@ -1,0 +1,95 @@
+import { Flags } from '@oclif/core';
+import chalk from 'chalk';
+import { BaseCommand } from '../base.js';
+import { createRegistryProvider } from '../lib/registry.js';
+
+export default class Wardrobe extends BaseCommand {
+  static summary = 'List available dresses and their status';
+
+  static examples = [
+    '<%= config.bin %> wardrobe',
+    '<%= config.bin %> wardrobe --json',
+  ];
+
+  static flags = {
+    ...BaseCommand.baseFlags,
+    json: Flags.boolean({
+      description: 'Output as JSON',
+      default: false,
+    }),
+  };
+
+  async run(): Promise<void> {
+    const { flags } = await this.parse(Wardrobe);
+    await this.loadConfig();
+
+    const registry = createRegistryProvider(process.cwd());
+    const index = await registry.getIndex();
+    const state = await this.stateManager.load();
+
+    const wornIds = new Set(Object.keys(state.dresses));
+    const wornUnderwear = new Set(Object.keys(state.underwear ?? {}));
+
+    if (flags.json) {
+      const data = {
+        dresses: Object.fromEntries(
+          Object.entries(index.dresses).map(([id, entry]) => [id, {
+            ...entry,
+            worn: wornIds.has(id),
+            ...(wornIds.has(id) ? { installedVersion: state.dresses[id].version } : {}),
+          }]),
+        ),
+        underwear: Object.fromEntries(
+          Object.entries(index.underwear).map(([id, entry]) => [id, {
+            ...entry,
+            worn: wornUnderwear.has(id),
+          }]),
+        ),
+      };
+      this.log(JSON.stringify(data, null, 2));
+      return;
+    }
+
+    // Dresses
+    this.log(chalk.bold('\nDresses:\n'));
+    const dressEntries = Object.entries(index.dresses);
+    if (dressEntries.length === 0) {
+      this.log('  No dresses in registry.');
+    } else {
+      for (const [id, entry] of dressEntries) {
+        const worn = wornIds.has(id);
+        const icon = worn ? chalk.green('●') : chalk.dim('○');
+        const label = worn ? chalk.green(entry.name) : entry.name;
+        const version = chalk.dim(`v${entry.version}`);
+        const status = worn ? chalk.green(' (worn)') : '';
+        this.log(`  ${icon} ${label} ${version}${status}`);
+        if (entry.description) {
+          this.log(`    ${chalk.dim(entry.description)}`);
+        }
+        if (entry.requires.underwear.length > 0) {
+          const uwStatus = entry.requires.underwear.map((uwId) =>
+            wornUnderwear.has(uwId) ? chalk.green(uwId) : chalk.yellow(uwId),
+          ).join(', ');
+          this.log(`    ${chalk.dim('requires:')} ${uwStatus}`);
+        }
+      }
+    }
+
+    // Underwear
+    this.log(chalk.bold('\nUnderwear:\n'));
+    const uwEntries = Object.entries(index.underwear);
+    if (uwEntries.length === 0) {
+      this.log('  No underwear in registry.');
+    } else {
+      for (const [id, entry] of uwEntries) {
+        const worn = wornUnderwear.has(id);
+        const icon = worn ? chalk.green('●') : chalk.dim('○');
+        const label = worn ? chalk.green(entry.name) : entry.name;
+        const status = worn ? chalk.green(' (worn)') : '';
+        this.log(`  ${icon} ${label}${status}`);
+      }
+    }
+
+    this.log('');
+  }
+}
