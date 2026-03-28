@@ -151,14 +151,20 @@ export default class UnderwearAdd extends BaseCommand {
           }
           this.log('');
           const [cmd, ...cmdArgs] = plugin.setupCommand.split(' ');
-          await new Promise<void>((resolve, reject) => {
+          const exitCode = await new Promise<number>((resolve, reject) => {
             const child = spawn(cmd, cmdArgs, { stdio: 'inherit' });
-            child.on('close', (code: number) => {
-              if (code === 0) resolve();
-              else reject(new Error(`Plugin setup "${plugin.setupCommand}" exited with code ${code}`));
-            });
+            child.on('close', (code: number) => resolve(code));
             child.on('error', reject);
           });
+          if (exitCode !== 0) {
+            const cont = await confirm({
+              message: `Setup exited with code ${exitCode}. Did it complete successfully?`,
+              default: true,
+            });
+            if (!cont) {
+              throw new Error(`Plugin setup "${plugin.setupCommand}" failed (exit code ${exitCode})`);
+            }
+          }
         }
 
         // Restart gateway and wait for health
