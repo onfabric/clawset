@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import type { ClawtiqueConfig } from '@clawtique/core';
-import { clawtiqueConfigSchema } from '@clawtique/core';
 import { Command, Flags } from '@oclif/core';
+import type { ClawtiqueConfig } from './core/index.js';
+import { clawtiqueConfigSchema } from './core/schemas/state.js';
 import { GitManager } from './lib/git.js';
 import { LocalOpenClawDriver } from './lib/openclaw.js';
 import {

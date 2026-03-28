@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { ClawtiqueConfig, StateFile } from '@clawtique/core';
 import { confirm, input } from '@inquirer/prompts';
 import { Command, Flags } from '@oclif/core';
 import chalk from 'chalk';
+import type { ClawtiqueConfig, StateFile } from '../core/index.js';
 import { GitManager } from '../lib/git.js';
 import { getClawtiquePaths, getOpenClawPaths } from '../lib/paths.js';
 

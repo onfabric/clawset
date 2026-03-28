@@ -1,9 +1,9 @@
-import type { StateFile } from '@clawtique/core';
 import { confirm, select } from '@inquirer/prompts';
 import { Args, Flags } from '@oclif/core';
 import chalk from 'chalk';
 import { Listr } from 'listr2';
 import { BaseCommand } from '../../base.js';
+import type { StateFile } from '../../core/index.js';
 
 export default class LingerieRemove extends BaseCommand {
   static override summary = 'Remove shared lingerie (uninstalls plugins if no dress depends on it)';

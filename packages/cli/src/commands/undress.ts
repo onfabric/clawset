@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { removeSection, type StateFile, stripMarkers } from '@clawtique/core';
 import { confirm, select } from '@inquirer/prompts';
 import { Args, Flags } from '@oclif/core';
 import chalk from 'chalk';
 import { Listr } from 'listr2';
 import { BaseCommand } from '../base.js';
+import { removeSection, type StateFile, stripMarkers } from '../core/index.js';
 
 export default class Undress extends BaseCommand {
   static override summary = 'Deactivate a dress and remove its config (data persists)';

@@ -8,7 +8,7 @@ import {
   lingerieJsonSchema,
   type RegistryIndex,
   registryIndexSchema,
-} from '@clawtique/core';
+} from '../core/index.js';
 
 // ---------------------------------------------------------------------------
 // RegistryProvider interface

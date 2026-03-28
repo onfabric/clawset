@@ -1,5 +1,5 @@
-import type { DressJson, Weekday } from '@clawtique/core';
-import { cronFromTime } from '@clawtique/core';
+import type { DressJson, Weekday } from '../core/index.js';
+import { cronFromTime } from '../core/index.js';
 
 // ---------------------------------------------------------------------------
 // Types for user choices collected during prompting

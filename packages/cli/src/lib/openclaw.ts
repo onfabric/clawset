@@ -8,7 +8,7 @@ import type {
   CronListEntry,
   OpenClawDriver,
   PluginConfigSchema,
-} from '@clawtique/core';
+} from '../core/index.js';
 import type { ExecFn } from './exec-recorder.js';
 
 const execFileAsync = promisify(execFile);

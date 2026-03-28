@@ -107,12 +107,18 @@ export const resolvedDressSchema = z.object({
   name: z.string().min(1),
   version: semverSchema,
   description: z.string().default(''),
-  requires: requiresSchema.default({}),
+  requires: requiresSchema.default({
+    plugins: [],
+    skills: [],
+    dresses: {},
+    optionalDresses: {},
+    lingerie: [],
+  }),
   secrets: z.record(z.string(), secretDefSchema).default({}),
   crons: z.array(cronDefSchema).default([]),
-  memory: memoryContractSchema.default({}),
+  memory: memoryContractSchema.default({ dailySections: [], reads: [] }),
   heartbeat: z.array(z.string()).default([]),
-  files: dressFilesSchema.default({}),
+  files: dressFilesSchema.default({ skills: {}, templates: [] }),
   // Workspace files: path (relative to workspace dir) → initial content
   // Created on dress if missing, preserved on undress (user data)
   workspace: z.record(z.string(), z.string()).default({}),

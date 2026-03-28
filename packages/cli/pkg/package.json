@@ -1,0 +1,44 @@
+{
+  "name": "@clawtique/cli",
+  "version": "0.1.0",
+  "description": "Goal-oriented wardrobe for your OpenClaw agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/onfabric/clawtique",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "clawtique": "./bin/cli.js"
+  },
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "bin/*",
+    "dist/*",
+    "package.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "oclif": {
+    "bin": "clawtique",
+    "dirname": "clawtique",
+    "commands": {
+      "strategy": "explicit",
+      "target": "./dist/index.js",
+      "identifier": "COMMANDS"
+    },
+    "topicSeparator": " "
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "@oclif/core": "^4.0.0",
+    "chalk": "^5.4.0",
+    "json5": "^2.2.0",
+    "listr2": "^8.0.0",
+    "ora": "^8.0.0",
+    "proper-lockfile": "^4.1.0",
+    "simple-git": "^3.27.0",
+    "write-file-atomic": "^6.0.0",
+    "zod": "^4.3.6"
+  }
+}

@@ -2,7 +2,12 @@ import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { DressJson, LingerieJson, Weekday } from '@clawtique/core';
+import { checkbox, confirm, input, select } from '@inquirer/prompts';
+import { Args, Flags } from '@oclif/core';
+import chalk from 'chalk';
+import { Listr } from 'listr2';
+import { BaseCommand } from '../base.js';
+import type { DressJson, LingerieJson, Weekday } from '../core/index.js';
 import {
   type AppliedCron,
   type DressEntry,
@@ -13,12 +18,7 @@ import {
   type ResolvedDress,
   type StateFile,
   wrapSection,
-} from '@clawtique/core';
-import { checkbox, confirm, input, select } from '@inquirer/prompts';
-import { Args, Flags } from '@oclif/core';
-import chalk from 'chalk';
-import { Listr } from 'listr2';
-import { BaseCommand } from '../base.js';
+} from '../core/index.js';
 import {
   type CompiledDress,
   type CronScheduleChoice,
