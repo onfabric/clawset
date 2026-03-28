@@ -4,8 +4,10 @@ import {
   assertBuildSuccess,
   cleanDir,
   printBuildOutput,
+  removeWorkspaceDependencies,
   setPackageJsonDependencies,
 } from '@repo/pack-utils';
+import pkg from './package.json';
 
 const CURRENT_DIR = import.meta.dir;
 const ROOT_LICENSE_PATH = join(CURRENT_DIR, '../..', 'LICENSE');
@@ -24,10 +26,10 @@ const buildResult = await Bun.build({
   entrypoints: PACKAGE_ENTRYPOINTS,
   outdir: DIST_DIR,
   target: 'node',
-  // Keep all node_modules external — oclif has internal require.resolve() calls
-  // and reads its own package.json at runtime, both of which break when bundled.
-  // Only our own source is inlined; everything else is a real runtime dep.
-  packages: 'external',
+  // Externalize declared runtime deps (oclif reads its own package.json and uses
+  // require.resolve() internally, both of which break when bundled). Internal
+  // #-alias imports and workspace packages are inlined by omitting them here.
+  external: Object.keys(removeWorkspaceDependencies(pkg.dependencies ?? {})),
   minify: true,
 });
 assertBuildSuccess({ buildResult });

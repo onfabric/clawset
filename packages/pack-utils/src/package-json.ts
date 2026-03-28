@@ -24,7 +24,7 @@ export async function setPackageJsonDependencies({
   await Bun.write(targetPackageJsonPath, `${JSON.stringify(updatedTargetPackageJson, null, 2)}\n`);
 }
 
-function removeWorkspaceDependencies(
+export function removeWorkspaceDependencies(
   dependencies: GenericPackageJson['dependencies'],
 ): GenericPackageJson['dependencies'] {
   return Object.fromEntries(
