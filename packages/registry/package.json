@@ -1,0 +1,16 @@
+{
+  "name": "@repo/registry",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate-registry": "bun run run.ts",
+    "check:types": "bun run --bun tsc"
+  },
+  "dependencies": {
+    "@repo/cli": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo/typescript-config": "workspace:*",
+    "typescript": "^5.9.3"
+  }
+}

@@ -2,6 +2,9 @@
   "name": "@repo/cli",
   "private": true,
   "type": "module",
+  "exports": {
+    "./core": "./src/core/index.ts"
+  },
   "scripts": {
     "build": "bun run build.ts",
     "check:types": "bun run --bun tsc"

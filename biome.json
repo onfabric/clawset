@@ -9,6 +9,7 @@
     "ignoreUnknown": false,
     "includes": [
       "**",
+      "!registry/registry.json",
       "!**/node_modules",
       "!**/dist",
       "!**/bun.lock",

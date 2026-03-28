@@ -14,11 +14,12 @@
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { type DressJson, dressJsonSchema } from '../packages/core/src/schemas/dress-json.js';
-import { lingerieJsonSchema } from '../packages/core/src/schemas/lingerie-json.js';
-import type { RegistryIndex } from '../packages/core/src/schemas/registry.js';
+import type { RegistryIndex } from '@repo/cli/core';
+import { type DressJson, dressJsonSchema, lingerieJsonSchema } from '@repo/cli/core';
 
-const REGISTRY_DIR = join(import.meta.dir, '..', 'registry');
+const ROOT_DIR = join(import.meta.dir, '../..');
+
+const REGISTRY_DIR = join(ROOT_DIR, 'registry');
 const DRESSES_DIR = join(REGISTRY_DIR, 'dresses');
 const LINGERIE_DIR = join(REGISTRY_DIR, 'lingerie');
 
