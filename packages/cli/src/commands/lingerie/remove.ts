@@ -49,7 +49,7 @@ export default class LingerieRemove extends BaseCommand {
     // Interactive picker if no ID given
     if (!lingerieId) {
       if (lingerieEntries.length === 0) {
-        this.error('No active lingerie to remove.\nRun "clawtique lingerie list" to check.');
+        this.error('No active lingerie to remove.\nRun "clawtique lingerie" to check.');
       }
       lingerieId = await select({
         message: 'Choose lingerie to remove',
@@ -63,7 +63,7 @@ export default class LingerieRemove extends BaseCommand {
     const entry = state.lingerie?.[lingerieId];
     if (!entry) {
       this.error(
-        `Lingerie "${lingerieId}" is not active.\nRun "clawtique lingerie list" to see active lingerie.`,
+        `Lingerie "${lingerieId}" is not active.\nRun "clawtique lingerie" to see active lingerie.`,
       );
     }
 

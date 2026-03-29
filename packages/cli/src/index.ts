@@ -2,17 +2,19 @@ import { execute } from '@oclif/core';
 
 import DiffCommand from '#commands/diff.ts';
 import DoctorCommand from '#commands/doctor.ts';
-import DressCommand from '#commands/dress.ts';
+import DressAddCommand from '#commands/dress/add.ts';
+import DressListCommand from '#commands/dress/index.ts';
+import DressParamsCommand from '#commands/dress/params.ts';
+import DressRemoveCommand from '#commands/dress/remove.ts';
 import InitCommand from '#commands/init.ts';
-import LingerieListCommand from '#commands/lingerie/list.ts';
+import LingerieAddCommand from '#commands/lingerie/add.ts';
+import LingerieListCommand from '#commands/lingerie/index.ts';
 import LingerieRemoveCommand from '#commands/lingerie/remove.ts';
 import LogCommand from '#commands/log.ts';
-import ParamsCommand from '#commands/params.ts';
-import PersonalityCommand from '#commands/personality/index.ts';
+import PersonalityListCommand from '#commands/personality/index.ts';
 import PersonalitySetCommand from '#commands/personality/set.ts';
 import RollbackCommand from '#commands/rollback.ts';
 import StatusCommand from '#commands/status.ts';
-import UndressCommand from '#commands/undress.ts';
 
 // Exported for oclif's explicit command-loading strategy.
 // Set synchronously so the export is live before the first await,
@@ -20,17 +22,19 @@ import UndressCommand from '#commands/undress.ts';
 export const COMMANDS = {
   diff: DiffCommand,
   doctor: DoctorCommand,
-  dress: DressCommand,
+  dress: DressListCommand,
+  'dress:add': DressAddCommand,
+  'dress:params': DressParamsCommand,
+  'dress:remove': DressRemoveCommand,
   init: InitCommand,
-  'lingerie list': LingerieListCommand,
-  'lingerie remove': LingerieRemoveCommand,
+  lingerie: LingerieListCommand,
+  'lingerie:add': LingerieAddCommand,
+  'lingerie:remove': LingerieRemoveCommand,
   log: LogCommand,
-  params: ParamsCommand,
-  personality: PersonalityCommand,
-  'personality set': PersonalitySetCommand,
+  personality: PersonalityListCommand,
+  'personality:set': PersonalitySetCommand,
   rollback: RollbackCommand,
   status: StatusCommand,
-  undress: UndressCommand,
 };
 
 export async function run() {

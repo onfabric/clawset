@@ -8,12 +8,12 @@ import { Listr } from 'listr2';
 import { BaseCommand } from '#base.ts';
 import { removeSection, type StateFile, stripMarkers } from '#core/index.ts';
 
-export default class Undress extends BaseCommand {
+export default class DressRemove extends BaseCommand {
   static override summary = 'Deactivate a dress and remove its config (data persists)';
 
   static override examples = [
-    '<%= config.bin %> undress fitness-coach',
-    '<%= config.bin %> undress fitness-coach --dry-run',
+    '<%= config.bin %> dress remove fitness-coach',
+    '<%= config.bin %> dress remove fitness-coach --dry-run',
   ];
 
   static override args = {
@@ -41,7 +41,7 @@ export default class Undress extends BaseCommand {
   };
 
   async run(): Promise<void> {
-    const { args, flags } = await this.parse(Undress);
+    const { args, flags } = await this.parse(DressRemove);
     await this.loadConfig();
 
     const state = await this.stateManager.load();
@@ -52,7 +52,7 @@ export default class Undress extends BaseCommand {
     if (!dressId) {
       const activeIds = Object.keys(state.dresses);
       if (activeIds.length === 0) {
-        this.error('No active dresses to remove.\nRun "clawtique status" to check.');
+        this.error('No active dresses to remove.\nRun "clawtique dress" to check.');
       }
       dressId = await select({
         message: 'Choose a dress to remove',
@@ -67,7 +67,7 @@ export default class Undress extends BaseCommand {
 
     if (!entry) {
       this.error(
-        `Dress "${dressId}" is not active.\nRun "clawtique status" to see active dresses.`,
+        `Dress "${dressId}" is not active.\nRun "clawtique dress" to see available dresses.`,
       );
     }
 
@@ -79,7 +79,7 @@ export default class Undress extends BaseCommand {
         this.log(`  - ${dep}`);
       }
       this.log('');
-      this.error(`Undress dependants first, or use --force.`);
+      this.error(`Remove dependants first, or use --force.`);
     }
 
     // Determine what needs to be removed vs retained
@@ -104,7 +104,7 @@ export default class Undress extends BaseCommand {
     );
 
     // Show what will happen
-    this.log(chalk.bold(`\nUndressing "${dressId}":\n`));
+    this.log(chalk.bold(`\nRemoving dress "${dressId}":\n`));
 
     for (const c of cronsToRemove) {
       this.log(`  ${chalk.red('-')} cron: ${c.displayName}`);
@@ -312,9 +312,9 @@ export default class Undress extends BaseCommand {
         .filter(Boolean)
         .join('\n');
 
-      await this.gitManager.commit('revert', dressId, 'undress', body);
+      await this.gitManager.commit('revert', dressId, 'dress remove', body);
 
-      this.log(`\n${chalk.green('✓')} Undressed "${dressId}". Data preserved.`);
+      this.log(`\n${chalk.green('✓')} Removed dress "${dressId}". Data preserved.`);
     } catch (err) {
       if (snapshot) await this.gitManager.rollback(snapshot);
       throw err;
@@ -338,7 +338,7 @@ export default class Undress extends BaseCommand {
       for (const p of entry.applied.plugins) plugins.add(p);
       for (const s of entry.applied.skills) skills.add(s);
     }
-    // Lingerie-managed plugins are never removed by undress
+    // Lingerie-managed plugins are never removed by dress remove
     for (const entry of Object.values(state.lingerie ?? {})) {
       for (const p of entry.applied.plugins) plugins.add(p);
     }

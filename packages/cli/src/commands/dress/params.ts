@@ -5,12 +5,12 @@ import type { DressJson } from '#core/index.ts';
 import { buildAutoVars, injectVars, parseSkillMeta, type SkillMeta } from '#lib/compile.ts';
 import { createRegistryProvider, type RegistryProvider } from '#lib/registry.ts';
 
-export default class Params extends BaseCommand {
+export default class DressParams extends BaseCommand {
   static override summary = 'View or update params for an active dress';
 
   static override examples = [
-    '<%= config.bin %> params fitness-coach',
-    '<%= config.bin %> params tech-bro-digest --set tech-bro-digest.sources="Hacker News, Reddit"',
+    '<%= config.bin %> dress params fitness-coach',
+    '<%= config.bin %> dress params tech-bro-digest --set tech-bro-digest.sources="Hacker News, Reddit"',
   ];
 
   static override args = {
@@ -33,7 +33,7 @@ export default class Params extends BaseCommand {
   };
 
   async run(): Promise<void> {
-    const { args, flags } = await this.parse(Params);
+    const { args, flags } = await this.parse(DressParams);
     await this.loadConfig();
 
     const state = await this.stateManager.load();
@@ -193,9 +193,9 @@ export default class Params extends BaseCommand {
       } catch (_err) {
         this.warn(
           'Could not re-compile skills (registry unavailable?).\n' +
-            '  To apply, run: clawtique undress ' +
+            '  To apply, run: clawtique dress remove ' +
             args.id +
-            ' && clawtique dress ' +
+            ' && clawtique dress add ' +
             args.id,
         );
       }

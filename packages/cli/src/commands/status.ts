@@ -45,13 +45,13 @@ export default class Status extends BaseCommand {
 
     if (entries.length === 0 && uwEntries.length === 0) {
       this.log('\nNo dresses or lingerie active.');
-      this.log(`Run ${chalk.cyan('clawtique dress <specifier>')} to get started.\n`);
+      this.log(`Run ${chalk.cyan('clawtique dress add <id>')} to get started.\n`);
       return;
     }
 
     if (entries.length === 0) {
       this.log('\nNo dresses active.');
-      this.log(`Run ${chalk.cyan('clawtique dress <specifier>')} to get started.\n`);
+      this.log(`Run ${chalk.cyan('clawtique dress add <id>')} to get started.\n`);
       return;
     }
 

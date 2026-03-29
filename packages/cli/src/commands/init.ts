@@ -108,7 +108,7 @@ export default class Init extends Command {
     this.log(`${chalk.green('✓')} Git repo initialized`);
     this.log('');
     this.log('Ready. Try:');
-    this.log(`  ${chalk.cyan('clawtique dress')} ./path/to/dress`);
+    this.log(`  ${chalk.cyan('clawtique dress add')} <id>`);
     this.log(`  ${chalk.cyan('clawtique status')}`);
   }
 }
