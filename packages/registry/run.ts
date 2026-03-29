@@ -35,8 +35,7 @@ const PERSONALITIES_DIR = join(REGISTRY_DIR, 'personalities');
 const AUTO_VARS = new Set([
   'dress.id',
   'dress.name',
-  'memory.dailySections',
-  'memory.reads',
+  'memory.dailySection',
   'workspace.root',
 ]);
 const AUTO_VAR_PREFIXES = ['workspace.'];

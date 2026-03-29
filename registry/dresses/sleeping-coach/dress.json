@@ -45,5 +45,5 @@
     }
   },
 
-  "memory": { "dailySections": ["Sleep"] }
+  "dailySection": "Sleep"
 }

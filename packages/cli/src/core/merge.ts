@@ -97,18 +97,18 @@ export function mergeDresses(dresses: Map<string, ResolvedDress>): {
       }
     }
 
-    // Memory sections — fail on conflict
-    for (const section of dress.memory.dailySections) {
-      if (state.memorySections.has(section)) {
-        const existingDress = state.memorySections.get(section)!;
+    // Daily section — fail on conflict
+    if (dress.dailySection) {
+      if (state.memorySections.has(dress.dailySection)) {
+        const existingDress = state.memorySections.get(dress.dailySection)!;
         conflicts.push({
           type: 'memory-section',
-          key: section,
+          key: dress.dailySection,
           dresses: [existingDress, dressId],
-          message: `Memory section "${section}" is claimed by both "${existingDress}" and "${dressId}"`,
+          message: `Daily section "${dress.dailySection}" is claimed by both "${existingDress}" and "${dressId}"`,
         });
       } else {
-        state.memorySections.set(section, dressId);
+        state.memorySections.set(dress.dailySection, dressId);
       }
     }
 
