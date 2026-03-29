@@ -426,7 +426,9 @@ export default class Dress extends BaseCommand {
     for (const wp of Object.keys(compiled.workspace)) {
       this.log(`  ${chalk.green('+')} workspace: ~/.openclaw/workspace/${wp}`);
     }
-    this.log(`  ${chalk.green('+')} dresscode: ~/.openclaw/workspace/dresses/${dress.id}/DRESSCODE.md`);
+    this.log(
+      `  ${chalk.green('+')} dresscode: ~/.openclaw/workspace/dresses/${dress.id}/DRESSCODE.md`,
+    );
     this.log('');
 
     if (flags['dry-run']) {
