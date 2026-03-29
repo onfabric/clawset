@@ -1,10 +1,11 @@
+import { select } from '@inquirer/prompts';
 import { Flags } from '@oclif/core';
 import chalk from 'chalk';
 import { BaseCommand } from '#base.ts';
 import { createRegistryProvider } from '#lib/registry.ts';
 
 export default class LingerieList extends BaseCommand {
-  static override summary = 'List available lingerie from the registry';
+  static override summary = 'List lingerie and add or remove them interactively';
 
   static override examples = ['<%= config.bin %> lingerie'];
 
@@ -42,20 +43,15 @@ export default class LingerieList extends BaseCommand {
       return;
     }
 
-    this.log(`\n${chalk.bold('Lingerie')}\n`);
-
-    for (const [id, entry] of entries) {
+    const choices = entries.map(([id, entry]) => {
       const active = activeIds.has(id);
       const version = state.lingerie?.[id]?.version ?? entry.version;
-      const status = active ? chalk.green(' (active)') : '';
       const marker = active ? chalk.green('●') : chalk.dim('○');
+      const action = active ? 'remove' : 'add';
 
-      this.log(`  ${marker} ${chalk.cyan(entry.name)} ${chalk.dim(`${id} v${version}`)}${status}`);
-      if (entry.description) {
-        this.log(`    ${chalk.dim(entry.description)}`);
-      }
+      let description = entry.description || undefined;
 
-      // Show which dresses depend on this lingerie (if active)
+      // Append dependant info for active lingerie
       if (active) {
         const dependants: string[] = [];
         for (const [dressId, dressEntry] of Object.entries(state.dresses)) {
@@ -64,13 +60,23 @@ export default class LingerieList extends BaseCommand {
           }
         }
         if (dependants.length > 0) {
-          this.log(`    ${chalk.dim(`used by: ${dependants.join(', ')}`)}`);
+          const suffix = `used by: ${dependants.join(', ')}`;
+          description = description ? `${description} — ${suffix}` : suffix;
         }
       }
-    }
 
-    this.log('');
-    this.log(chalk.dim(`  ${entries.length} lingerie | ${activeIds.size} active`));
-    this.log('');
+      return {
+        name: `${marker} ${entry.name} ${chalk.dim(`${id} v${version}`)}`,
+        value: { action, id },
+        description,
+      };
+    });
+
+    const { action, id } = await select({
+      message: 'Lingerie',
+      choices,
+    });
+
+    await this.config.runCommand(`lingerie:${action}`, [id]);
   }
 }

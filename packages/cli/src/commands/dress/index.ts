@@ -1,10 +1,11 @@
+import { select } from '@inquirer/prompts';
 import { Flags } from '@oclif/core';
 import chalk from 'chalk';
 import { BaseCommand } from '#base.ts';
 import { createRegistryProvider } from '#lib/registry.ts';
 
 export default class DressList extends BaseCommand {
-  static override summary = 'List available dresses from the registry';
+  static override summary = 'List dresses and add or remove them interactively';
 
   static override examples = ['<%= config.bin %> dress'];
 
@@ -42,26 +43,24 @@ export default class DressList extends BaseCommand {
       return;
     }
 
-    this.log(`\n${chalk.bold('Dresses')}\n`);
-
-    for (const [id, entry] of entries) {
+    const choices = entries.map(([id, entry]) => {
       const active = activeIds.has(id);
       const version = state.dresses[id]?.version ?? entry.version;
-      const status = active ? chalk.green(' (active)') : '';
       const marker = active ? chalk.green('●') : chalk.dim('○');
+      const action = active ? 'remove' : 'add';
 
-      this.log(`  ${marker} ${chalk.cyan(entry.name)} ${chalk.dim(`${id} v${version}`)}${status}`);
-      if (entry.description) {
-        this.log(`    ${chalk.dim(entry.description)}`);
-      }
-    }
+      return {
+        name: `${marker} ${entry.name} ${chalk.dim(`${id} v${version}`)}`,
+        value: { action, id },
+        description: entry.description || undefined,
+      };
+    });
 
-    this.log('');
-    this.log(
-      chalk.dim(
-        `  ${entries.length} dress${entries.length === 1 ? '' : 'es'} | ${activeIds.size} active`,
-      ),
-    );
-    this.log('');
+    const { action, id } = await select({
+      message: 'Dresses',
+      choices,
+    });
+
+    await this.config.runCommand(`dress:${action}`, [id]);
   }
 }

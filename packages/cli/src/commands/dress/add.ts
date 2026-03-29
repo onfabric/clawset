@@ -207,7 +207,10 @@ export default class DressAdd extends BaseCommand {
         });
         if (!install) {
           this.log("  You wouldn't go out without lingerie, would you?");
-          this.error(`Missing lingerie: "${uwId}". Cannot dress without it.`);
+          this.error(
+            `Dress "${dress.name}" requires lingerie "${uwId}".\n` +
+              `Install it separately with: clawtique lingerie add ${uwId}`,
+          );
         }
         await this.installLingerie(registry, uwId, state);
       }
