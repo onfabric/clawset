@@ -3,10 +3,10 @@ import chalk from 'chalk';
 import { BaseCommand } from '#base.ts';
 import { createRegistryProvider } from '#lib/registry.ts';
 
-export default class PersonalityList extends BaseCommand {
-  static override summary = 'List available personalities from the registry';
+export default class LingerieList extends BaseCommand {
+  static override summary = 'List available lingerie from the registry';
 
-  static override examples = ['<%= config.bin %> personality'];
+  static override examples = ['<%= config.bin %> lingerie'];
 
   static override flags = {
     ...BaseCommand.baseFlags,
@@ -17,36 +17,36 @@ export default class PersonalityList extends BaseCommand {
   };
 
   async run(): Promise<void> {
-    const { flags } = await this.parse(PersonalityList);
+    const { flags } = await this.parse(LingerieList);
     await this.loadConfig();
 
     const registry = createRegistryProvider(process.cwd(), this.clawtiquePaths.cache);
     const index = await registry.getIndex();
     const state = await this.stateManager.load();
-    const activeId = state.personality?.id;
+    const activeIds = new Set(Object.keys(state.lingerie ?? {}));
 
-    const entries = Object.entries(index.personalities);
+    const entries = Object.entries(index.lingerie);
 
     if (flags.json) {
       const result = entries.map(([id, entry]) => ({
         id,
         ...entry,
-        active: id === activeId,
+        active: activeIds.has(id),
       }));
       this.log(JSON.stringify(result, null, 2));
       return;
     }
 
-    if (entries.length === 0 && !activeId) {
-      this.log('\nNo personalities available in the registry.\n');
+    if (entries.length === 0) {
+      this.log('\nNo lingerie available in the registry.\n');
       return;
     }
 
-    this.log(`\n${chalk.bold('Personalities')}\n`);
+    this.log(`\n${chalk.bold('Lingerie')}\n`);
 
     for (const [id, entry] of entries) {
-      const active = id === activeId;
-      const version = active ? (state.personality?.version ?? entry.version) : entry.version;
+      const active = activeIds.has(id);
+      const version = state.lingerie?.[id]?.version ?? entry.version;
       const status = active ? chalk.green(' (active)') : '';
       const marker = active ? chalk.green('●') : chalk.dim('○');
 
@@ -54,18 +54,26 @@ export default class PersonalityList extends BaseCommand {
       if (entry.description) {
         this.log(`    ${chalk.dim(entry.description)}`);
       }
-    }
 
-    // Show default option
-    const defaultActive = activeId === 'default' || !activeId;
-    const defaultMarker = defaultActive ? chalk.green('●') : chalk.dim('○');
-    const defaultStatus = defaultActive ? chalk.green(' (active)') : '';
-    this.log(`  ${defaultMarker} ${chalk.cyan('Default')} ${chalk.dim('default')}${defaultStatus}`);
-    this.log(`    ${chalk.dim('Restore original personality files.')}`);
+      // Show which dresses depend on this lingerie (if active)
+      if (active) {
+        const dependants: string[] = [];
+        for (const [dressId, dressEntry] of Object.entries(state.dresses)) {
+          if ((dressEntry.applied.lingerie ?? []).includes(id)) {
+            dependants.push(dressId);
+          }
+        }
+        if (dependants.length > 0) {
+          this.log(`    ${chalk.dim(`used by: ${dependants.join(', ')}`)}`);
+        }
+      }
+    }
 
     this.log('');
     this.log(
-      chalk.dim(`  ${entries.length + 1} personalities | active: ${activeId ?? 'default'}`),
+      chalk.dim(
+        `  ${entries.length} lingerie | ${activeIds.size} active`,
+      ),
     );
     this.log('');
   }

@@ -31,12 +31,12 @@ import { createRegistryProvider, type RegistryProvider } from '#lib/registry.ts'
 
 const ALL_DAYS: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
-export default class Dress extends BaseCommand {
+export default class DressAdd extends BaseCommand {
   static override summary = 'Install and activate a dress';
 
   static override examples = [
-    '<%= config.bin %> dress fitness-coach',
-    '<%= config.bin %> dress tech-bro-digest --dry-run',
+    '<%= config.bin %> dress add fitness-coach',
+    '<%= config.bin %> dress add tech-bro-digest --dry-run',
   ];
 
   static override args = {
@@ -60,7 +60,7 @@ export default class Dress extends BaseCommand {
   };
 
   async run(): Promise<void> {
-    const { args, flags } = await this.parse(Dress);
+    const { args, flags } = await this.parse(DressAdd);
     const config = await this.loadConfig();
 
     const registry = createRegistryProvider(process.cwd(), this.clawtiquePaths.cache);
@@ -105,7 +105,9 @@ export default class Dress extends BaseCommand {
 
     // Check if already dressed
     if (this.stateManager.isDressed(state, dress.id)) {
-      this.error(`Already dressed in "${dress.id}". Undress first: clawtique undress ${dress.id}`);
+      this.error(
+        `Already dressed in "${dress.id}". Remove first: clawtique dress remove ${dress.id}`,
+      );
     }
 
     // Fetch bundled skill contents
@@ -216,7 +218,7 @@ export default class Dress extends BaseCommand {
       if (!this.stateManager.isDressed(state, depId)) {
         this.error(
           `Missing required dress: "${depId}" (${depVersion})\n` +
-            `Install it first: clawtique dress ${depId}`,
+            `Install it first: clawtique dress add ${depId}`,
         );
       }
     }
@@ -800,9 +802,6 @@ export default class Dress extends BaseCommand {
     this.log(`  ${chalk.green('✓')} Lingerie "${uw.name}" installed.\n`);
   }
 
-  /**
-   * Convert a CompiledDress into a ResolvedDress for merge compatibility.
-   */
   private compiledToResolved(compiled: CompiledDress): ResolvedDress {
     const allSkills = [...compiled.bundledSkills.keys(), ...compiled.clawHubSkills];
     return {
@@ -832,9 +831,6 @@ export default class Dress extends BaseCommand {
     };
   }
 
-  /**
-   * Reconstruct a ResolvedDress from stored state for merge calculations.
-   */
   private reconstructResolved(id: string, entry: DressEntry): ResolvedDress {
     return {
       id,
