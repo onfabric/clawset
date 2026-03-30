@@ -909,44 +909,10 @@ export default class DressAdd extends BaseCommand {
     newDressId: string,
     compiled: CompiledDress,
   ): Promise<void> {
-    // Collect all user skills for the routing table
-    const allUserSkills: { skillId: string; dressId: string; description: string }[] = [];
-
-    // From existing dresses — we only have skill IDs, read descriptions from DRESSCODE.md
-    // For now, just list them; the DRESSCODE.md has the full details
-    for (const [id, entry] of Object.entries(state.dresses)) {
-      for (const skillId of entry.applied.userSkills ?? []) {
-        allUserSkills.push({ skillId, dressId: id, description: '' });
-      }
-    }
-
-    // From the newly compiled dress ��� we have full trigger info
-    for (const [skillId, trigger] of Object.entries(compiled.skillTriggers)) {
-      if (trigger.type === 'user') {
-        allUserSkills.push({ skillId, dressId: newDressId, description: trigger.description });
-      }
-    }
-
     const lines = ['# Active Dresses\n'];
     lines.push(
       'You MUST read each DRESSCODE.md listed below. They define your skills, schedules, daily memory sections, and workspace files.\n',
     );
-
-    // User skill routing table
-    if (allUserSkills.length > 0) {
-      lines.push('## User Skills');
-      lines.push('');
-      lines.push(
-        "When the user's request matches one of these, you MUST read the linked skill file and follow its instructions before taking any action.",
-      );
-      lines.push('');
-      for (const { skillId, dressId, description } of allUserSkills) {
-        const desc = description ? ` — ${description}` : '';
-        lines.push(`- **${skillId}** (${dressId})${desc}`);
-        lines.push(`  → \`~/.openclaw/skills/${skillId}/SKILL.md\``);
-      }
-      lines.push('');
-    }
 
     for (const [id] of Object.entries(state.dresses)) {
       lines.push(`## ${id}`);

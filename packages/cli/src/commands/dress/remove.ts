@@ -353,33 +353,10 @@ export default class DressRemove extends BaseCommand {
   }
 
   private async rebuildDressesIndex(state: StateFile, excludeId: string): Promise<void> {
-    // Collect user skills from remaining dresses
-    const allUserSkills: { skillId: string; dressId: string }[] = [];
-    for (const [id, entry] of Object.entries(state.dresses)) {
-      if (id === excludeId) continue;
-      for (const skillId of entry.applied.userSkills ?? []) {
-        allUserSkills.push({ skillId, dressId: id });
-      }
-    }
-
     const lines = ['# Active Dresses\n'];
     lines.push(
       'You MUST read each DRESSCODE.md listed below. They define your skills, schedules, daily memory sections, and workspace files.\n',
     );
-
-    if (allUserSkills.length > 0) {
-      lines.push('## User Skills');
-      lines.push('');
-      lines.push(
-        "When the user's request matches one of these, you MUST read the linked skill file and follow its instructions before taking any action.",
-      );
-      lines.push('');
-      for (const { skillId, dressId } of allUserSkills) {
-        lines.push(`- **${skillId}** (${dressId})`);
-        lines.push(`  → \`~/.openclaw/skills/${skillId}/SKILL.md\``);
-      }
-      lines.push('');
-    }
 
     for (const [id] of Object.entries(state.dresses)) {
       if (id === excludeId) continue;
