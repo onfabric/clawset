@@ -18,7 +18,6 @@ import {
   type PluginDef,
   type ResolvedDress,
   type StateFile,
-  formatUtcOffset,
   wrapSection,
 } from '#core/index.ts';
 import {
@@ -32,6 +31,11 @@ import {
 import { createRegistryProvider, type RegistryProvider } from '#lib/registry.ts';
 
 const ALL_DAYS: Weekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+const gmtOffset = (tz: string): string =>
+  new Intl.DateTimeFormat('en', { timeZone: tz, timeZoneName: 'shortOffset' })
+    .formatToParts(new Date())
+    .find((p) => p.type === 'timeZoneName')!.value;
 
 export default class DressAdd extends BaseCommand {
   static override summary = 'Install and activate a dress';
@@ -264,16 +268,16 @@ export default class DressAdd extends BaseCommand {
         message: 'Search for your timezone',
         source: (term) => {
           const q = (term ?? '').toLowerCase();
-          if (!q) return allTimezones.map((v) => ({ name: `${v} (${formatUtcOffset(v)})`, value: v }));
+          if (!q) return allTimezones.map((v) => ({ name: `${v} (${gmtOffset(v)})`, value: v }));
           return allTimezones
             .filter((v) => v.toLowerCase().includes(q))
-            .map((v) => ({ name: `${v} (${formatUtcOffset(v)})`, value: v }));
+            .map((v) => ({ name: `${v} (${gmtOffset(v)})`, value: v }));
         },
       });
 
       timezone = tz;
       // Save timezone to config for future dresses
-      this.log(`  ${chalk.dim(`Using ${timezone} (${formatUtcOffset(timezone)})`)}`);
+      this.log(`  ${chalk.dim(`Using ${timezone} (${gmtOffset(timezone)})`)}`);
       const configData = JSON.parse(await readFile(this.clawtiquePaths.config, 'utf-8'));
       configData.timezone = timezone;
       await writeFile(this.clawtiquePaths.config, `${JSON.stringify(configData, null, 2)}\n`);
