@@ -70,10 +70,3 @@ Some dresses need shared plugins — like a messaging channel. These are called 
 | `clawtique lingerie remove <id>` | Remove unused lingerie |
 
 Mutating commands support `--dry-run`.
-
-## Development
-
-```bash
-bun install
-bun run build
-```
