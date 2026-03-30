@@ -86,10 +86,10 @@ export function buildAutoVars(dress: DressJson): Record<string, string> {
     'dress.id': dress.id,
     'dress.name': dress.name,
     'memory.dailyMemorySection': dress.dailyMemorySection ?? '',
-    'workspace.root': `~/.openclaw/workspace/${dress.id}`,
+    'workspace.root': `~/.openclaw/workspace/dresses/${dress.id}`,
   };
   for (const wsPath of dress.workspace) {
-    vars[`workspace.${wsPath}`] = `~/.openclaw/workspace/${wsPath}`;
+    vars[`workspace.${wsPath}`] = `~/.openclaw/workspace/dresses/${dress.id}/${wsPath}`;
   }
   return vars;
 }
@@ -205,7 +205,38 @@ export function validateDress(
     }
   }
 
+  // Validate that workspace paths referenced in skills point to declared workspace files
+  const autoVars = buildAutoVars(dress);
+  const workspaceRoot = autoVars['workspace.root']!;
+  // Collect all resolved workspace file paths from auto-vars
+  const declaredWorkspaceFiles = new Set(dress.workspace.map((p) => autoVars[`workspace.${p}`]!));
+
+  for (const [skillId, skillDef] of Object.entries(dress.skills)) {
+    if (skillDef.source === 'clawhub') continue;
+
+    const content = skillContents.get(skillId);
+    if (!content) continue;
+
+    // Resolve auto-vars so we can see the actual paths
+    const resolved = injectVars(content, autoVars);
+
+    // Find all paths under workspace.root (backtick-wrapped or bare)
+    const pathPattern = new RegExp(`${escapeRegExp(workspaceRoot)}/([\\w./-]+)`, 'g');
+    for (const match of resolved.matchAll(pathPattern)) {
+      const fullPath = match[0]!;
+      if (!declaredWorkspaceFiles.has(fullPath)) {
+        errors.push(
+          `Skill "${skillId}": references "${fullPath}" but no matching entry in workspace array`,
+        );
+      }
+    }
+  }
+
   return { errors, warnings };
+}
+
+function escapeRegExp(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ---------------------------------------------------------------------------

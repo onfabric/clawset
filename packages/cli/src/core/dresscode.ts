@@ -98,7 +98,7 @@ export function generateDresscode(
     lines.push('## Workspace');
     lines.push('');
     for (const path of dress.workspace) {
-      lines.push(`- \`~/.openclaw/workspace/${path}\``);
+      lines.push(`- \`~/.openclaw/workspace/dresses/${dress.id}/${path}\``);
     }
     lines.push('');
   }
