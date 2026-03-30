@@ -458,7 +458,7 @@ export default class DressAdd extends BaseCommand {
       );
     }
     for (const wp of compiled.workspace) {
-      this.log(`  ${chalk.green('+')} workspace: ~/.openclaw/workspace/${wp}`);
+      this.log(`  ${chalk.green('+')} workspace: ~/.openclaw/workspace/dresses/${dress.id}/${wp}`);
     }
     this.log(
       `  ${chalk.green('+')} dresscode: ~/.openclaw/workspace/dresses/${dress.id}/DRESSCODE.md`,
@@ -618,7 +618,7 @@ export default class DressAdd extends BaseCommand {
             title: 'Setting up workspace files',
             skip: () => compiled.workspace.length === 0,
             task: async () => {
-              const workspaceDir = join(this.openclawPaths.root, 'workspace');
+              const workspaceDir = join(this.openclawPaths.dresses, dress.id);
               for (const filePath of compiled.workspace) {
                 const fullPath = join(workspaceDir, filePath);
                 if (existsSync(fullPath)) continue;
@@ -702,7 +702,7 @@ export default class DressAdd extends BaseCommand {
                   userSkills: Object.entries(compiled.skillTriggers)
                     .filter(([, t]) => t.type === 'user')
                     .map(([id]) => id),
-                  workspaceFiles: [...compiled.workspace],
+                  workspaceFiles: compiled.workspace.map((p) => `${dress.id}/${p}`),
                   lingerie: [...compiled.lingerie],
                 },
               };

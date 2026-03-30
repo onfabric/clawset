@@ -30,5 +30,5 @@
 
   "dailyMemorySection": "Bookmarks",
 
-  "workspace": ["url-bookmark/bookmarks.md"]
+  "workspace": ["bookmarks.md"]
 }

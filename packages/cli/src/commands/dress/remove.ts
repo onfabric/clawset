@@ -263,7 +263,7 @@ export default class DressRemove extends BaseCommand {
             skip: () => !deleteWorkspace || workspaceFiles.length === 0,
             task: async () => {
               const { rm } = await import('node:fs/promises');
-              const workspaceDir = join(this.openclawPaths.root, 'workspace');
+              const workspaceDir = this.openclawPaths.dresses;
               for (const w of workspaceFiles) {
                 const fullPath = join(workspaceDir, w);
                 if (existsSync(fullPath)) {
