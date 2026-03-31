@@ -20,9 +20,9 @@ import {
   wrapSection,
 } from '#core/index.ts';
 import {
-  compiledToResolved,
   type CronScheduleChoice,
   compileDress,
+  compiledToResolved,
   parseSkillMeta,
   type SkillMeta,
   validateDress,
@@ -844,10 +844,7 @@ export default class DressAdd extends BaseCommand {
     };
   }
 
-  private async updateDressesIndex(
-    state: StateFile,
-    newDressId: string,
-  ): Promise<void> {
+  private async updateDressesIndex(state: StateFile, newDressId: string): Promise<void> {
     const lines = ['# Active Dresses\n'];
     lines.push(
       'You MUST read each DRESSCODE.md listed below. They define your skills, schedules, daily memory sections, and workspace files.\n',

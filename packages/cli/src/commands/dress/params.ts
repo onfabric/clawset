@@ -1,10 +1,10 @@
 import { Args, Flags } from '@oclif/core';
 import chalk from 'chalk';
 import { BaseCommand } from '#base.ts';
+import DressUpdate from '#commands/dress/update.ts';
 import type { DressJson } from '#core/index.ts';
 import { parseSkillMeta, type SkillMeta } from '#lib/compile.ts';
 import { createRegistryProvider, type RegistryProvider } from '#lib/registry.ts';
-import DressUpdate from '#commands/dress/update.ts';
 
 export default class DressParams extends BaseCommand {
   static override summary = 'View or update params for an active dress';

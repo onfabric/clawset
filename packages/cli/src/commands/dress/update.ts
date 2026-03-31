@@ -15,9 +15,9 @@ import {
   wrapSection,
 } from '#core/index.ts';
 import {
-  compiledToResolved,
   type CronScheduleChoice,
   compileDress,
+  compiledToResolved,
   parseSkillMeta,
   validateDress,
 } from '#lib/compile.ts';
@@ -182,9 +182,7 @@ export default class DressUpdate extends BaseCommand {
           const cronSkillId = Object.entries(dress.skills).find(
             ([, s]) => s.trigger.type === 'cron' && s.trigger.cronId === cron.id,
           )?.[0];
-          this.log(
-            `  ${chalk.cyan(cron.name)}${cronSkillId ? ` → skill: ${cronSkillId}` : ''}`,
-          );
+          this.log(`  ${chalk.cyan(cron.name)}${cronSkillId ? ` → skill: ${cronSkillId}` : ''}`);
 
           const time = await input({
             message: `  Time (HH:MM)`,
@@ -269,7 +267,11 @@ export default class DressUpdate extends BaseCommand {
       const prev = currentSchedules[cron.id];
       const next = newSchedules[cron.id];
       if (!next) continue;
-      if (!prev || prev.time !== next.time || JSON.stringify(prev.days) !== JSON.stringify(next.days)) {
+      if (
+        !prev ||
+        prev.time !== next.time ||
+        JSON.stringify(prev.days) !== JSON.stringify(next.days)
+      ) {
         const label = prev
           ? `${prev.time} ${prev.days.join(',')} → ${next.time} ${next.days.join(',')}`
           : `${next.time} ${next.days.join(',')}`;
@@ -401,9 +403,7 @@ export default class DressUpdate extends BaseCommand {
                     `**${id}** — ${(t as { description: string }).description}\n  → \`~/.openclaw/skills/${id}/SKILL.md\``,
                 );
 
-              let content = existsSync(heartbeatPath)
-                ? await readFile(heartbeatPath, 'utf-8')
-                : '';
+              let content = existsSync(heartbeatPath) ? await readFile(heartbeatPath, 'utf-8') : '';
               const rulesBlock = hbEntries.map((r) => `- ${r}`).join('\n');
               const section = `\n## ${dressId}\n${rulesBlock}\n`;
               const wrapped = wrapSection(dressId, section);
@@ -488,5 +488,4 @@ export default class DressUpdate extends BaseCommand {
       await this.stateManager.unlock();
     }
   }
-
 }

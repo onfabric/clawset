@@ -83,9 +83,7 @@ export abstract class BaseCommand extends Command {
           default: true,
         });
         if (!cont) {
-          throw new Error(
-            `Plugin setup "${plugin.setupCommand}" failed (exit code ${exitCode})`,
-          );
+          throw new Error(`Plugin setup "${plugin.setupCommand}" failed (exit code ${exitCode})`);
         }
       }
     } else {
