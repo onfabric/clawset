@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -507,50 +506,7 @@ export default class DressAdd extends BaseCommand {
 
         // Run plugin setup
         for (const plugin of pluginsToInstall) {
-          if (plugin.setupNotes.length > 0) {
-            this.log('');
-            for (const note of plugin.setupNotes) {
-              this.log(`  ${chalk.cyan('→')} ${note}`);
-            }
-          }
-
-          if (plugin.setupCommand) {
-            this.log(`\n${chalk.bold(`Setting up ${plugin.id}...`)}`);
-            this.log('');
-            const [cmd, ...cmdArgs] = plugin.setupCommand.split(' ');
-            const exitCode = await new Promise<number>((resolve, reject) => {
-              const child = spawn(cmd!, cmdArgs, { stdio: 'inherit' });
-              child.on('close', (code: number) => resolve(code));
-              child.on('error', reject);
-            });
-            if (exitCode !== 0) {
-              const cont = await confirm({
-                message: `Setup exited with code ${exitCode}. Did it complete successfully?`,
-                default: true,
-              });
-              if (!cont) {
-                throw new Error(
-                  `Plugin setup "${plugin.setupCommand}" failed (exit code ${exitCode})`,
-                );
-              }
-            }
-          } else {
-            const schema = await this.openclawDriver.pluginConfigSchema(plugin.id);
-            if (schema && Object.keys(schema.properties).length > 0) {
-              this.log(`\n${chalk.bold(`Configuring ${plugin.id}...`)}\n`);
-              for (const [key, prop] of Object.entries(schema.properties)) {
-                const isRequired = schema.required.includes(key);
-                const label = prop.description || key;
-                const suffix = isRequired ? '' : ' (optional)';
-                const value = await input({ message: `${label}${suffix}:` });
-                if (value) {
-                  await this.openclawDriver.configSet(`${schema.configPrefix}.${key}`, value);
-                } else if (isRequired) {
-                  this.error(`Required config "${key}" was not provided.`);
-                }
-              }
-            }
-          }
+          await this.setupPlugin(plugin);
         }
 
         // Restart gateway
@@ -778,41 +734,7 @@ export default class DressAdd extends BaseCommand {
       await this.openclawDriver.pluginInstall(plugin.spec);
       installedPlugins.push(plugin.id);
 
-      if (plugin.setupNotes.length > 0) {
-        this.log('');
-        for (const note of plugin.setupNotes) {
-          this.log(`  ${chalk.cyan('→')} ${note}`);
-        }
-      }
-
-      if (plugin.setupCommand) {
-        this.log(`\n${chalk.bold(`Setting up ${plugin.id}...`)}\n`);
-        const [cmd, ...cmdArgs] = plugin.setupCommand.split(' ');
-        const exitCode = await new Promise<number>((resolve, reject) => {
-          const child = spawn(cmd!, cmdArgs, { stdio: 'inherit' });
-          child.on('close', (code: number) => resolve(code));
-          child.on('error', reject);
-        });
-        if (exitCode !== 0) {
-          this.error(`Lingerie plugin setup failed (exit code ${exitCode}).`);
-        }
-      } else {
-        const schema = await this.openclawDriver.pluginConfigSchema(plugin.id);
-        if (schema && Object.keys(schema.properties).length > 0) {
-          this.log(`\n${chalk.bold(`Configuring ${plugin.id}...`)}\n`);
-          for (const [key, prop] of Object.entries(schema.properties)) {
-            const isRequired = schema.required.includes(key);
-            const label = prop.description || key;
-            const suffix = isRequired ? '' : ' (optional)';
-            const value = await input({ message: `${label}${suffix}:` });
-            if (value) {
-              await this.openclawDriver.configSet(`${schema.configPrefix}.${key}`, value);
-            } else if (isRequired) {
-              this.error(`Required config "${key}" was not provided.`);
-            }
-          }
-        }
-      }
+      await this.setupPlugin(plugin, true);
     }
 
     // Restart gateway if we installed plugins
