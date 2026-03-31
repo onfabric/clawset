@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import type { ClawtiqueConfig, StateFile } from '#core/index.ts';
 import { ensureDressesReference, INITIAL_DRESSES_MD } from '#core/index.ts';
 import { GitManager } from '#lib/git.ts';
+import { LocalOpenClawDriver } from '#lib/openclaw.ts';
 import { getClawtiquePaths, getOpenClawPaths } from '#lib/paths.ts';
 
 export default class Init extends Command {
@@ -109,6 +110,13 @@ export default class Init extends Command {
 
     // Ensure AGENTS.md references DRESSES.md (idempotent — skips if marker present)
     await ensureDressesReference(ocWorkspace);
+
+    // Ensure tools.profile is 'full' so all plugins/tools are available
+    if (existsSync(ocPaths.config)) {
+      const oc = new LocalOpenClawDriver();
+      await oc.configSet('tools.profile', 'full');
+      this.log(`  ${chalk.dim('Set tools.profile to "full" in openclaw.json')}`);
+    }
 
     // Write config
     const config: ClawtiqueConfig = {
