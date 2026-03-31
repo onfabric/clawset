@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { confirm, input, search } from '@inquirer/prompts';
 import { Command, Flags } from '@oclif/core';
@@ -109,6 +109,17 @@ export default class Init extends Command {
 
     // Ensure AGENTS.md references DRESSES.md (idempotent — skips if marker present)
     await ensureDressesReference(ocWorkspace);
+
+    // Ensure openclaw.json has tools.profile set to 'full' so all plugins work
+    if (existsSync(ocPaths.config)) {
+      const raw = await readFile(ocPaths.config, 'utf8');
+      const ocConfig = JSON.parse(raw);
+      if (ocConfig.tools?.profile !== 'full') {
+        ocConfig.tools = { ...ocConfig.tools, profile: 'full' };
+        await writeFile(ocPaths.config, `${JSON.stringify(ocConfig, null, 2)}\n`);
+        this.log(`  ${chalk.dim('Set tools.profile to "full" in openclaw.json')}`);
+      }
+    }
 
     // Write config
     const config: ClawtiqueConfig = {
