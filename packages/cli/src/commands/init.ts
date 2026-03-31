@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { confirm, input, search } from '@inquirer/prompts';
 import { Command, Flags } from '@oclif/core';
@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import type { ClawtiqueConfig, StateFile } from '#core/index.ts';
 import { ensureDressesReference, INITIAL_DRESSES_MD } from '#core/index.ts';
 import { GitManager } from '#lib/git.ts';
+import { LocalOpenClawDriver } from '#lib/openclaw.ts';
 import { getClawtiquePaths, getOpenClawPaths } from '#lib/paths.ts';
 
 export default class Init extends Command {
@@ -110,15 +111,11 @@ export default class Init extends Command {
     // Ensure AGENTS.md references DRESSES.md (idempotent — skips if marker present)
     await ensureDressesReference(ocWorkspace);
 
-    // Ensure openclaw.json has tools.profile set to 'full' so all plugins work
+    // Ensure tools.profile is 'full' so all plugins/tools are available
     if (existsSync(ocPaths.config)) {
-      const raw = await readFile(ocPaths.config, 'utf8');
-      const ocConfig = JSON.parse(raw);
-      if (ocConfig.tools?.profile !== 'full') {
-        ocConfig.tools = { ...ocConfig.tools, profile: 'full' };
-        await writeFile(ocPaths.config, `${JSON.stringify(ocConfig, null, 2)}\n`);
-        this.log(`  ${chalk.dim('Set tools.profile to "full" in openclaw.json')}`);
-      }
+      const oc = new LocalOpenClawDriver();
+      await oc.configSet('tools.profile', 'full');
+      this.log(`  ${chalk.dim('Set tools.profile to "full" in openclaw.json')}`);
     }
 
     // Write config
