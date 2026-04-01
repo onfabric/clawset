@@ -8,8 +8,8 @@
     "configs": [
       { "key": "browser.enabled", "value": true },
       { "key": "browser.defaultProfile", "value": "browser-use" },
-      { "key": "browser.remoteCdpTimeoutMs", "value": 3000 },
-      { "key": "browser.remoteCdpHandshakeTimeoutMs", "value": 5000 }
+      { "key": "browser.remoteCdpTimeoutMs", "value": 10000 },
+      { "key": "browser.remoteCdpHandshakeTimeoutMs", "value": 15000 }
     ],
     "configPrefix": "browser.profiles.browser-use",
     "params": {
@@ -28,7 +28,7 @@
         "required": true,
         "default": "wss://connect.browser-use.com",
         "params": ["apiKey", "profileId"],
-        "build": "{value}?apiKey={apiKey}&profileId={profileId}&proxyCountryCode=uk"
+        "build": "{value}?apiKey={apiKey}&profileId={profileId}&proxyCountryCode=uk&timeout=10"
       },
       "color": {
         "description": "Profile display color",
