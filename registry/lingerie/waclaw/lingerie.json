@@ -32,7 +32,7 @@
       "voice": {
         "description": "OpenAI TTS voice",
         "required": true,
-        "default": "sage"
+        "default": "nova"
       },
       "apiKey": {
         "description": "OpenAI API key for TTS",
