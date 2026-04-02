@@ -11,7 +11,7 @@ The user wants to be reminded about something. Your job is to understand what, w
 
 1. Read `~/.openclaw/workspace/USER.md` for the user's profile
 2. Read today's and yesterday's daily memory for recent context
-3. Determine the user's **timezone** — check `~/.openclaw/workspace/memory/MEMORY.md` for timezone info. If you cannot determine it, ask and then store it in `~/.openclaw/workspace/memory/MEMORY.md`.
+3. Determine the user's **timezone** — check `~/.openclaw/workspace/USER.md` for timezone info. If you cannot determine it, ask and then store it in `~/.openclaw/workspace/USER.md`.
 
 ## Step 2: Parse the reminder
 
