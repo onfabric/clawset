@@ -11,6 +11,7 @@
       { "key": "browser.remoteCdpTimeoutMs", "value": 10000 },
       { "key": "browser.remoteCdpHandshakeTimeoutMs", "value": 15000 },
       { "key": "tools.web.fetch.enabled", "value": true },
+      { "key": "tools.web.search.enabled", "value": true },
       { "key": "tools.web.search.provider", "value": "duckduckgo" },
       { "key": "plugins.entries.duckduckgo.enabled", "value": true }
     ],
