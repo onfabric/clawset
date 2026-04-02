@@ -157,7 +157,13 @@ export default class Init extends Command {
     };
     if (existsSync(paths.state)) {
       const existing: StateFile = JSON.parse(await readFile(paths.state, 'utf-8'));
-      state = { ...state, dresses: existing.dresses, lingerie: existing.lingerie, personality: existing.personality, serial: existing.serial };
+      state = {
+        ...state,
+        dresses: existing.dresses,
+        lingerie: existing.lingerie,
+        personality: existing.personality,
+        serial: existing.serial,
+      };
     }
     await writeFile(paths.state, `${JSON.stringify(state, null, 2)}\n`);
 
