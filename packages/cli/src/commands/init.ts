@@ -125,16 +125,25 @@ export default class Init extends Command {
       this.log(`  ${chalk.dim('Set heartbeat interval to 60m')}`);
     }
 
-    // Seed USER.md with timezone so the agent always knows it
+    // Seed USER.md with name and timezone so the agent always knows them
     const userMdPath = join(ocWorkspace, 'USER.md');
+    const nameLine = `- **Name:** ${userName}`;
     const tzLine = `- **Timezone:** ${timezone} (${gmtOffset(timezone)})`;
     if (existsSync(userMdPath)) {
-      const existing = await readFile(userMdPath, 'utf-8');
-      if (!existing.includes('**Timezone:**')) {
-        await writeFile(userMdPath, `${existing.trimEnd()}\n\n${tzLine}\n`);
+      let existing = await readFile(userMdPath, 'utf-8');
+      if (existing.includes('**Name:**')) {
+        existing = existing.replace(/- \*\*Name:\*\* .*/g, nameLine);
+      } else {
+        existing = `${existing.trimEnd()}\n${nameLine}`;
       }
+      if (existing.includes('**Timezone:**')) {
+        existing = existing.replace(/- \*\*Timezone:\*\* .*/g, tzLine);
+      } else {
+        existing = `${existing.trimEnd()}\n${tzLine}`;
+      }
+      await writeFile(userMdPath, `${existing.trimEnd()}\n`);
     } else {
-      await writeFile(userMdPath, `# User\n\n- **Name:** ${userName}\n${tzLine}\n`);
+      await writeFile(userMdPath, `# User\n\n${nameLine}\n${tzLine}\n`);
     }
 
     // Write config
