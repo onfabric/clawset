@@ -133,13 +133,28 @@ export abstract class BaseCommand extends Command {
 
   /**
    * Reset the waclaw agent session so config/plugin changes are picked up.
-   * Silently skips if no waclaw session exists.
+   * Retries up to 3 times on failure. Best-effort: warns instead of throwing
+   * so the surrounding operation is not rolled back.
    */
   protected async resetWaclawSession(): Promise<void> {
     const sessions = await this.openclawDriver.sessionList();
     const waclawSession = sessions.find((s) => s.key.includes(':waclaw:'));
     if (!waclawSession) return;
-    await this.openclawDriver.sessionReset(waclawSession.sessionId);
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        await this.openclawDriver.sessionReset(waclawSession.sessionId);
+        return;
+      } catch (err) {
+        if (attempt === maxAttempts) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.warn(`Session reset failed after ${maxAttempts} attempts: ${msg}`);
+          this.warn('The waclaw session will pick up changes on next restart.');
+          return;
+        }
+      }
+    }
   }
 
   /**
