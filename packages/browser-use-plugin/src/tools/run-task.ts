@@ -1,5 +1,5 @@
 import { Type } from '@sinclair/typebox';
-import type { BrowserUse } from 'browser-use-sdk';
+import type { BrowserUse, RunTaskOptions } from 'browser-use-sdk';
 import type { OpenClawPluginApi } from 'openclaw/plugin-sdk/plugin-entry';
 import { registerTool } from '../lib/register-tool';
 import { getSession, setSession } from '../lib/session-store';
@@ -53,10 +53,13 @@ export function registerRunTaskTool(
       );
 
       try {
+        const countryCode = proxyCountryCode as NonNullable<
+          RunTaskOptions['sessionSettings']
+        >['proxyCountryCode'];
         const result = await client.run(params.task, {
-          sessionId: params.session_id ?? undefined,
+          sessionId: params.session_id,
           sessionSettings: !params.session_id
-            ? { profileId, proxyCountryCode: proxyCountryCode as 'uk', enableRecording: false }
+            ? { profileId, proxyCountryCode: countryCode, enableRecording: false }
             : undefined,
           timeout: timeoutMs,
         });
