@@ -110,51 +110,68 @@ export abstract class BaseCommand extends Command {
   }
 
   /**
+   * Retry `fn` up to `attempts` times. On final failure, warn instead of
+   * throwing so the surrounding operation is not rolled back.
+   */
+  protected async retryOrWarn(
+    fn: () => Promise<void>,
+    { attempts = 3, failMessage }: { attempts?: number; failMessage: string },
+  ): Promise<boolean> {
+    for (let i = 1; i <= attempts; i++) {
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        if (i === attempts) {
+          const detail = err instanceof Error ? err.message : String(err);
+          this.warn(`${failMessage}: ${detail}`);
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
    * Restart the OpenClaw gateway and wait for it to become healthy.
    * Never throws — warns the user to restart manually on failure.
    * @returns `true` if the gateway became healthy, `false` otherwise.
    */
   protected async restartGateway(): Promise<boolean> {
-    try {
-      await this.openclawDriver.gatewayRestart();
-      for (let i = 0; i < 10; i++) {
-        await new Promise((r) => setTimeout(r, 2_000));
-        const h = await this.openclawDriver.health();
-        if (h.ok) return true;
-      }
-    } catch {
-      // fall through to warning
-    }
-    this.warn(
-      'Gateway failed to restart. Run "openclaw gateway restart" manually to apply changes.',
+    return this.retryOrWarn(
+      async () => {
+        await this.openclawDriver.gatewayRestart();
+        for (let i = 0; i < 10; i++) {
+          await new Promise((r) => setTimeout(r, 2_000));
+          const h = await this.openclawDriver.health();
+          if (h.ok) return;
+        }
+        throw new Error('gateway did not become healthy within 20 s');
+      },
+      {
+        attempts: 1,
+        failMessage:
+          'Gateway failed to restart. Run "openclaw gateway restart" manually to apply changes',
+      },
     );
-    return false;
   }
 
   /**
    * Reset the waclaw agent session so config/plugin changes are picked up.
-   * Retries up to 3 times on failure. Best-effort: warns instead of throwing
-   * so the surrounding operation is not rolled back.
+   * Retries up to 3 times. Never throws — warns on final failure.
    */
   protected async resetWaclawSession(): Promise<void> {
     const sessions = await this.openclawDriver.sessionList();
     const waclawSession = sessions.find((s) => s.key.includes(':waclaw:'));
     if (!waclawSession) return;
 
-    const maxAttempts = 3;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        await this.openclawDriver.sessionReset(waclawSession.sessionId);
-        return;
-      } catch (err) {
-        if (attempt === maxAttempts) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.warn(`Session reset failed after ${maxAttempts} attempts: ${msg}`);
-          this.warn('The waclaw session will pick up changes on next restart.');
-          return;
-        }
-      }
-    }
+    await this.retryOrWarn(
+      () => this.openclawDriver.sessionReset(waclawSession.sessionId),
+      {
+        attempts: 3,
+        failMessage:
+          'Session reset failed. The waclaw session will pick up changes on next restart',
+      },
+    );
   }
 
   /**
