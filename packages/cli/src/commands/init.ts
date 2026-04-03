@@ -111,8 +111,11 @@ export default class Init extends Command {
     // Ensure AGENTS.md references DRESSES.md (idempotent — skips if marker present)
     await ensureDressesReference(ocWorkspace);
 
-    // Write a clean HEARTBEAT.md (replace any noisy template)
-    await writeFile(ocPaths.heartbeat, '# Heartbeat checklist\n');
+    // Write a clean HEARTBEAT.md only on first init (replace the noisy template).
+    // On re-init, preserve the existing heartbeat so dress-contributed items aren't lost.
+    if (!existsSync(paths.config)) {
+      await writeFile(ocPaths.heartbeat, '# Heartbeat checklist\n');
+    }
 
     // Ensure tools.profile is 'full' so all plugins/tools are available
     if (existsSync(ocPaths.config)) {
