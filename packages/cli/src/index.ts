@@ -9,7 +9,6 @@ import DressRemoveCommand from '#commands/dress/remove.ts';
 import DressUpdateCommand from '#commands/dress/update.ts';
 import DressUpgradeCommand from '#commands/dress/upgrade.ts';
 import InitCommand from '#commands/init.ts';
-import RegistryUpdateCommand from '#commands/registry/update.ts';
 import LingerieAddCommand from '#commands/lingerie/add.ts';
 import LingerieListCommand from '#commands/lingerie/index.ts';
 import LingerieRemoveCommand from '#commands/lingerie/remove.ts';
@@ -18,6 +17,7 @@ import LingerieUpgradeCommand from '#commands/lingerie/upgrade.ts';
 import LogCommand from '#commands/log.ts';
 import PersonalityListCommand from '#commands/personality/index.ts';
 import PersonalitySetCommand from '#commands/personality/set.ts';
+import RegistryUpdateCommand from '#commands/registry/update.ts';
 import RollbackCommand from '#commands/rollback.ts';
 import StatusCommand from '#commands/status.ts';
 
