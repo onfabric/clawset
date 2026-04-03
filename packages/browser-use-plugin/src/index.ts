@@ -8,7 +8,7 @@ import { registerStopSessionTool } from './tools/stop-session';
 export default definePluginEntry({
   id: PLUGIN_ID,
   name: 'Browser Use Agent',
-  description: 'Delegate browser tasks to Browser Use cloud AI agent',
+  description: "Delegate browser tasks to Browser Use's AI agent",
   configSchema,
   register(api) {
     const cfg = parseConfig(api.pluginConfig);
@@ -20,7 +20,7 @@ export default definePluginEntry({
 
     if (missing.length > 0) {
       api.logger.warn(
-        `browser-use-agent: missing ${missing.join(', ')} in cdpUrl. ` +
+        `buclaw: missing ${missing.join(', ')} in cdpUrl. ` +
           'Install the browser-use lingerie first: clawtique lingerie add browser-use',
       );
       return;
@@ -33,7 +33,7 @@ export default definePluginEntry({
     registerStopSessionTool(api, client);
 
     api.logger.info(
-      `browser-use-agent: registered tools (profile: ${cfg.profileId}, proxy: ${cfg.proxyCountryCode})`,
+      `buclaw: registered tools (profile: ${cfg.profileId}, proxy: ${cfg.proxyCountryCode})`,
     );
   },
 });

@@ -1,6 +1,6 @@
 {
-  "name": "@onfabric/browser-use-plugin",
-  "description": "Browser Use Cloud Agent for OpenClaw — delegate browser tasks to an AI agent",
+  "name": "@onfabric/buclaw-plugin",
+  "description": "Browser Use Agent for OpenClaw — delegate browser tasks to an AI agent",
   "version": "0.0.1",
   "license": "MIT",
   "type": "module",
