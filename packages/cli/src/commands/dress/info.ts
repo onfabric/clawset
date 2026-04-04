@@ -1,5 +1,6 @@
 import { Args } from '@oclif/core';
 import { BaseCommand } from '#base.ts';
+import type { DressJson } from '#core/index.ts';
 import { createRegistryProvider } from '#lib/registry.ts';
 
 export default class DressInfo extends BaseCommand {
@@ -28,7 +29,7 @@ export default class DressInfo extends BaseCommand {
 
     const registry = createRegistryProvider(process.cwd(), this.clawtiquePaths.cache);
 
-    let dress;
+    let dress: DressJson;
     try {
       dress = await registry.getDressJson(args.id);
     } catch {
