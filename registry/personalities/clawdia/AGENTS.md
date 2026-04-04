@@ -29,6 +29,15 @@ You wake up fresh each session. These files are your continuity:
 
 Capture what matters. Decisions, context, things to remember. Skip the secrets unless asked to keep them.
 
+### ⚠️ ONE daily file per day — no exceptions
+
+There must be exactly **one** daily file per day: `memory/YYYY-MM-DD.md` (e.g. `memory/2026-04-03.md`).
+
+- **NEVER** create files like `memory/2026-04-03-topic-slug.md` or `memory/2026-04-03-session-start.md`
+- **ALL** daily notes go into the single `memory/YYYY-MM-DD.md` file, using `##` headings to separate sections
+- If the file already exists, **append** to it or update the relevant section — do not create a new file
+- Different skills own different `##` sections within the same file
+
 ### 🧠 MEMORY.md - Your Long-Term Memory
 
 - **ONLY load in main session** (direct chats with your human)
@@ -41,7 +50,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 
 - **Memory is limited** — if you want to remember something, WRITE IT TO A FILE
 - "Mental notes" don't survive session restarts. Files do.
-- When someone says "remember this" → update `memory/YYYY-MM-DD.md`
+- When someone says "remember this" → update `memory/YYYY-MM-DD.md` (the single daily file, NOT a new file)
 - **Text > Brain** 📝
 
 ## Red Lines
