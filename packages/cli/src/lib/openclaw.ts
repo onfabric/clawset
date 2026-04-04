@@ -311,11 +311,12 @@ export class LocalOpenClawDriver implements OpenClawDriver {
 
   async sessionReset(sessionId: string): Promise<void> {
     const { exitCode, stderr } = await this.exec(
-      ['agent', '--message', '/reset', '--session-id', sessionId, '--json'],
-      { timeout: 60_000 },
+      ['agent', '--message', '/reset', '--session-id', sessionId, '--json', '--timeout', '90'],
+      { timeout: 120_000 },
     );
     if (exitCode !== 0) {
-      throw new Error(`Failed to reset session "${sessionId}": ${stderr}`);
+      const detail = stderr || '(no output — the command may have timed out)';
+      throw new Error(`Failed to reset session "${sessionId}": ${detail}`);
     }
   }
 
